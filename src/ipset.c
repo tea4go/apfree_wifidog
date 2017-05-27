@@ -258,7 +258,7 @@ int add_to_ipset(const char *setname, const char *val, int flag)
 {
 	int af = AF_INET;
 	
-	debug(LOG_DEBUG, "add_to_ipset [%s] [%s] [%d]", setname, val, flag);
+	debug(LOG_DEBUG, "SetIPSset() : %sIP地址 %s %s %s 链路", flag?"删除":"增加",val,flag?"从":"到",setname);
 	if(is_valid_ip(val)) {	
 		struct in_addr addr;
 		if (inet_aton(val, &addr) == 0) 

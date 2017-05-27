@@ -3,12 +3,10 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 
+    <meta name="author"content="Liu.QiQuan@ztesoft.com"> 
+
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
     <meta http-equiv="X-UA-COMPATIBLE" content="IE=edge,chrome=1"/>
-    <!--[if lt IE 9]
-        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-    <![endif]>-->
     <title>正在为您加载，请稍候...</title>
     <style>
         body{
@@ -170,7 +168,7 @@
     <p>正在为您加载，请稍候...</p>
     <!--<hr style="width:300px;margin:30px auto 10px;border-bottom:1px solid #77839b;border-top:1px solid #1f2228"/>-->
 </div>
-    <h5 class="hder footer">坤腾畅联</h5>
+    <h5 class="hder footer">中兴软创</h5>
 </body>
 
 <script type="text/javascript">

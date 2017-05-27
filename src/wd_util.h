@@ -74,7 +74,6 @@ void mark_online(void);
 void mark_offline(void);
 
 void mark_offline_time(void);
-
 /** @brief Returns a guess (true or false) on whether we're online or not based on previous calls to mark_online and mark_offline */
 int is_online(void);
 

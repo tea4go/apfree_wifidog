@@ -18,6 +18,6 @@
 **
 */
 
-char    LIBHTTPD_VERSION[] =  "ApFree WiFiDog",
-        LIBHTTPD_VENDOR[] =   "K.T.Cooperation";
+char    LIBHTTPD_VERSION[] =  "WiFi Firewall",
+        LIBHTTPD_VENDOR[] =   "LiuQQ";
 

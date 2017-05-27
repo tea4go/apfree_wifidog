@@ -58,18 +58,18 @@ thread_httpd(void *args)
 	r = *(params + 1);
 	free(params); /* XXX We must release this ourselves. */
 	
-	debug(LOG_DEBUG, "Processing request from %s", r->clientAddr);
+	//debug(LOG_DEBUG, "thread_httpd() : 读取终端(%s)的Http请求 ", r->clientAddr);
 	if (httpdReadRequest(webserver, r) == 0) {
 		/*
 		 * We read the request fine
 		 */
-		debug(LOG_DEBUG, "Calling httpdProcessRequest() for %s", r->clientAddr);
+		//debug(LOG_DEBUG, "thread_httpd() : 处理终端(%s)的Http请求", r->clientAddr);
 		httpdProcessRequest(webserver, r);
-		debug(LOG_DEBUG, "Returned from httpdProcessRequest() for %s", r->clientAddr);
+		//debug(LOG_DEBUG, "thread_httpd() : 完成终端(%s)的Http请求", r->clientAddr);
 	}
 	else {
-		debug(LOG_DEBUG, "No valid request received from %s", r->clientAddr);
+		//debug(LOG_DEBUG, "thread_httpd() : 读取终端(%s)的Http请求，没有任何数据。", r->clientAddr);
 	}
-	debug(LOG_DEBUG, "Closing connection with %s", r->clientAddr);
+	//debug(LOG_DEBUG, "thread_httpd() : 关闭终端(%s)的Http请求", r->clientAddr);
 	httpdEndRequest(r);
 }

@@ -135,7 +135,7 @@ parse_commandline(int argc, char **argv)
             break;
 
         case 'v':
-            fprintf(stdout, "This is WiFiDog version " VERSION "\n");
+            fprintf(stdout, "This is WiFiDog version " VERSION "(%s %s)\n",__DATE__,__TIME__);
             exit(1);
             break;
 
@@ -144,7 +144,7 @@ parse_commandline(int argc, char **argv)
             if (optarg) {
                 restart_orig_pid = atoi(optarg);
             } else {
-                fprintf(stdout, "The expected PID to the -x switch was not supplied!");
+                fprintf(stdout, "-x PID，没有传入PID。\n");
                 exit(1);
             }
             break;
@@ -161,7 +161,7 @@ parse_commandline(int argc, char **argv)
                 free(config->arp_table_path);
                 config->arp_table_path = safe_strdup(optarg);
             } else {
-                fprintf(stdout, "You must supply the path to the ARP table with -a!");
+                fprintf(stdout, "-a arp_path，没有传入ARP路径。\n");
                 exit(1);
             }
             break;
@@ -170,7 +170,7 @@ parse_commandline(int argc, char **argv)
                 free(config->pidfile);
                 config->pidfile = safe_strdup(optarg);
             } else {
-                fprintf(stdout, "The expected PID file path to the wifidog was not supplied!\n");
+                fprintf(stdout, "-p pid_file，没有传入PID文件名。\n");
                 exit(1);
             }
             break;

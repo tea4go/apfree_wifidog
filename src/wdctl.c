@@ -93,37 +93,37 @@ usage(void)
     fprintf(stdout, "Usage: wdctl [options] command [arguments]\n");
     fprintf(stdout, "\n");
     fprintf(stdout, "options:\n");
-    fprintf(stdout, "  -s <path>         Path to the socket\n");
-    fprintf(stdout, "  -h                Print usage\n");
+    fprintf(stdout, "  -s <path>                                    Path to the socket\n");
+    fprintf(stdout, "  -h                                           Print usage\n");
     fprintf(stdout, "\n");
     fprintf(stdout, "commands:\n");
-    fprintf(stdout, "  reset [mac|ip]    Reset the specified mac or ip connection\n");
-    fprintf(stdout, "  status            Obtain the status of wifidog\n");
-    fprintf(stdout, "  stop              Stop the running wifidog\n");
-    fprintf(stdout, "  restart           Re-start the running wifidog (without disconnecting active users!)\n");
+    fprintf(stdout, "  reset [mac|ip]								Reset the specified mac or ip connection\n");
+    fprintf(stdout, "  status										Obtain the status of wifidog\n");
+    fprintf(stdout, "  stop											Stop the running wifidog\n");
+    fprintf(stdout, "  restart										Re-start the running wifidog (without disconnecting active users!)\n");
 	//>>> liudf added 20151225
     fprintf(stdout, "  add_trusted_pdomains [domain1,domain2...]	Add trusted pan-domains\n");
     fprintf(stdout, "  del_trusted_pdomains [domain1,domain2...]	Del trusted pan-domains\n");
-    fprintf(stdout, "  clear_trusted_pdomains	Clear all trusted pan-domains\n");
-    fprintf(stdout, "  add_trusted_domains [domain1,domain2...]	Add trusted domains\n");
+    fprintf(stdout, "  clear_trusted_pdomains	                    Clear all trusted pan-domains\n");
+    fprintf(stdout, "  add_trusted_domains [domain1,domain2...]	    Add trusted domains\n");
     fprintf(stdout, "  del_trusted_domains [domain1,domain2...]		Del trusted domains\n");
-    fprintf(stdout, "  clear_trusted_domains	Clear all trusted domains\n");
-    fprintf(stdout, "  reparse_trusted_domains	Reparse trusted domains ip\n");
-    fprintf(stdout, "  add_trusted_iplist [ip1,ip2...]		Add trusted ip list\n");
-    //fprintf(stdout, "  del_trusted_iplist [ip1,ip2...]		Del trusted ip list\n");
-    fprintf(stdout, "  clear_trusted_iplist		Clear trusted ip list\n");
-    fprintf(stdout, "  show_trusted_domains 	Show all trusted domains and its ip\n");
-    fprintf(stdout, "  add_domain_ip [domain:ip] 	Add domain and its ip\n");
-    fprintf(stdout, "  add_trusted_mac [mac1,mac2...]			Add trusted mac list\n");
-    fprintf(stdout, "  del_trusted_mac [mac1,mac2...]			Del trusted mac list\n");
-    fprintf(stdout, "  clear_trusted_mac		Clear trusted mac list\n");
-    fprintf(stdout, "  show_trusted_mac			Show trusted mac list\n");
-    fprintf(stdout, "  add_untrusted_mac [mac1,mac2...]		Add untrusted mac list\n");
-    fprintf(stdout, "  del_untrusted_mac [mac1,mac2...]		Del untrusted mac list\n");
-	fprintf(stdout, "  clear_untrusted_mac		Clear untrusted mac list\n");
-    fprintf(stdout, "  show_untrusted_mac		Show untrusted mac list\n");
-    fprintf(stdout, "  user_cfg_save			User config save\n");
-	fprintf(stdout, "  add_online_client 		Add online client\n");
+    fprintf(stdout, "  clear_trusted_domains						Clear all trusted domains\n");
+    fprintf(stdout, "  reparse_trusted_domains						Reparse trusted domains ip\n");
+    fprintf(stdout, "  add_trusted_iplist [ip1,ip2...]				Add trusted ip list\n");
+    //fprintf(stdout, "  del_trusted_iplist [ip1,ip2...]				Del trusted ip list\n");
+    fprintf(stdout, "  clear_trusted_iplist							Clear trusted ip list\n");
+    fprintf(stdout, "  show_trusted_domains							Show all trusted domains and its ip\n");
+    fprintf(stdout, "  add_domain_ip [domain:ip]					Add domain and its ip\n");
+    fprintf(stdout, "  add_trusted_mac [mac1,mac2...]				Add trusted mac list\n");
+    fprintf(stdout, "  del_trusted_mac [mac1,mac2...]				Del trusted mac list\n");
+    fprintf(stdout, "  clear_trusted_mac							Clear trusted mac list\n");
+    fprintf(stdout, "  show_trusted_mac								Show trusted mac list\n");
+    fprintf(stdout, "  add_untrusted_mac [mac1,mac2...]				Add untrusted mac list\n");
+    fprintf(stdout, "  del_untrusted_mac [mac1,mac2...]				Del untrusted mac list\n");
+	fprintf(stdout, "  clear_untrusted_mac							Clear untrusted mac list\n");
+    fprintf(stdout, "  show_untrusted_mac							Show untrusted mac list\n");
+    fprintf(stdout, "  user_cfg_save								User config save\n");
+	fprintf(stdout, "  add_online_client							Add online client\n");
 	//<<< liudf added end
     fprintf(stdout, "\n");
 }
@@ -335,7 +335,7 @@ connect_to_server(const char *sock_name)
     /* Connect to socket */
     sock = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sock < 0) {
-        fprintf(stdout, "wdctl: could not get socket (Error: %s)\n", strerror(errno));
+        fprintf(stdout, "不能获得UNIX套接字。错误码：%d，原因：%s \n", errno, strerror(errno));
         exit(1);
     }
     memset(&sa_un, 0, sizeof(sa_un));
@@ -343,7 +343,7 @@ connect_to_server(const char *sock_name)
     strncpy(sa_un.sun_path, sock_name, (sizeof(sa_un.sun_path) - 1));
 
     if (wd_connect(sock, (struct sockaddr *)&sa_un, strlen(sa_un.sun_path) + sizeof(sa_un.sun_family), 2)) {
-        fprintf(stdout, "wdctl: wifidog probably not started (Error: %s)\n", strerror(errno));
+        fprintf(stdout, "wifidog进程没有启动。错误码：%d，原因：%s \n", errno, strerror(errno));
         exit(1);
     }
 

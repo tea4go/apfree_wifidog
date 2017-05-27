@@ -58,7 +58,7 @@
 json_object *
 auth_server_roam_request(const char *mac)
 {
-	s_config *config = config_get_config();
+    s_config *config = config_get_config();
     int sockfd;
     char buf[MAX_BUF];
     char *tmp = NULL, *end = NULL;
@@ -67,71 +67,62 @@ auth_server_roam_request(const char *mac)
 
 
     sockfd = connect_auth_server();
-	if (sockfd <= 0) {
-		debug(LOG_ERR, "There was a problem connecting to the auth server!");		
+    if (sockfd <= 0) {
+        debug(LOG_ERR, "There was a problem connecting to the auth server!");        
         return NULL;
-	}
+    }
 
      /**
-	 * TODO: XXX change the PHP so we can harmonize stage as request_type
-	 * everywhere.
-	 */
+     * TODO: XXX change the PHP so we can harmonize stage as request_type
+     * everywhere.
+     */
     memset(buf, 0, sizeof(buf));
-	snprintf(buf, sizeof(buf),
-		"GET %sroam?gw_id=%s&mac=%s&channel_path=%s HTTP/1.1\r\n"
-        "User-Agent: ApFree WiFiDog %s\r\n"
-		"Connection: keep-alive\r\n"
+    snprintf(buf, sizeof(buf),
+        "GET %sroam?gw_id=%s&mac=%s&channel_path=%s HTTP/1.1\r\n"
+        "User-Agent: WiFi Firewall %s\r\n"
+        "Connection: keep-alive\r\n"
         "Host: %s\r\n"
         "\r\n",
         auth_server->authserv_path,
         config->gw_id,
-		mac,
-		g_channel_path?g_channel_path:"null",
-		VERSION, auth_server->authserv_hostname);
+        mac,
+        g_channel_path?g_channel_path:"null",
+        VERSION, auth_server->authserv_hostname);
 
     char *res = http_get_ex(sockfd, buf, 2);
 
-	close_auth_server();
+    close_auth_server();
     if (NULL == res) {
-        debug(LOG_ERR, "There was a problem talking to the auth server!");		
+        debug(LOG_ERR, "There was a problem talking to the auth server!");        
         return NULL;
     }
 
     if ((tmp = strstr(res, "{\"")) && (end = strrchr(res, '}'))) {
-		*(end+1) = '\0';
-		debug(LOG_DEBUG, "tmp is [%s]", tmp);
-		json_object *roam_info = json_tokener_parse(tmp);
-		if(roam_info == NULL) {
-        	debug(LOG_ERR, "error parse json info %s!", tmp);
-			free(res);
-			return NULL;
-		}
-        
         char *is_roam = NULL;
-        json_object *roam_jo = NULL;
-        if ( ! json_object_object_get_ex(roam_info, "roam", &roam_jo)) {
+        *(end+1) = '\0';
+        debug(LOG_DEBUG, "tmp is [%s]", tmp);
+        json_object *roam_info = json_tokener_parse(tmp);
+        if(roam_info == NULL) {
+            debug(LOG_ERR, "error parse json info %s!", tmp);
             free(res);
-            json_object_put(roam_info);
             return NULL;
         }
-		is_roam = json_object_get_string(roam_jo);
-		if(is_roam && strcmp(is_roam, "yes") == 0) {
-			json_object *client = NULL;
-            if( ! json_object_object_get_ex(roam_info, "client", &client)) {
+    
+        is_roam = json_object_get_string(json_object_object_get(roam_info, "roam"));
+        if(is_roam && strcmp(is_roam, "yes") == 0) {
+            json_object *client = json_object_object_get(roam_info, "client");
+            if(client != NULL) {
+                json_object *client_dup = json_tokener_parse(json_object_to_json_string(client));
+                debug(LOG_INFO, "roam client is %s!", json_object_to_json_string(client));
                 free(res);
                 json_object_put(roam_info);
-                return NULL;
+                return client_dup;
             }
-            json_object *client_dup = json_tokener_parse(json_object_to_json_string(client));
-            debug(LOG_INFO, "roam client is %s!", json_object_to_json_string(client));
-            free(res);
-            json_object_put(roam_info);
-            return client_dup;
-		}
+        }
 
-		free(res);
+        free(res);
         json_object_put(roam_info);
-		return NULL;
+        return NULL;
     }
 
     free(res);
@@ -141,6 +132,14 @@ auth_server_roam_request(const char *mac)
 char * 
 get_auth_uri(const char *request_type, client_type_t type, void *data)
 {
+    debug(LOG_DEBUG, "get_auth_uri()");
+	if (data==NULL)
+	{
+        debug(LOG_ERR, "get_auth_uri() : 不可能，传入的client指针为空。");
+        debug(LOG_DEBUG, "get_auth_uri() : end");
+		return NULL;
+	}
+
     char *ip    = NULL;
     char *mac   = NULL;
     char *name  = NULL;
@@ -149,6 +148,8 @@ get_auth_uri(const char *request_type, client_type_t type, void *data)
     time_t first_login = 0;
     unsigned int online_time = 0;
     int wired = 0;
+	char time_str[64];    
+
 
     switch(type) {
     case online_client:
@@ -172,11 +173,12 @@ get_auth_uri(const char *request_type, client_type_t type, void *data)
         t_trusted_mac *t_mac = (t_trusted_mac *)data;
         ip  = t_mac->ip;
         mac = t_mac->mac;
-        wired = is_device_wired(mac);
+        wired = 0;//is_device_wired(mac);
         break;
     }
 
     default:
+        debug(LOG_DEBUG, "get_auth_uri() : end");
         return NULL;
     }
 
@@ -184,9 +186,10 @@ get_auth_uri(const char *request_type, client_type_t type, void *data)
     t_auth_serv *auth_server = get_auth_server();
     char *uri = NULL;
     int nret = 0;
+
     if (config->deltatraffic) {
         nret = safe_asprintf(&uri, 
-             "%s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&incomingdelta=%llu&outgoingdelta=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d",
+             "%s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&incomingdelta=%llu&outgoingdelta=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d&call_counter=%s",
              auth_server->authserv_path,
              auth_server->authserv_auth_script_path_fragment,
              request_type,
@@ -199,10 +202,10 @@ get_auth_uri(const char *request_type, client_type_t type, void *data)
              online_time,
              config->gw_id,
              g_channel_path?g_channel_path:"null", 
-             name?name:"null", wired);
+             name?name:"null", wired, gettimeofdaystr(time_str,sizeof(time_str)));
     } else {
         nret = safe_asprintf(&uri, 
-             "%s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d",
+             "%s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d&call_counter=%s",
              auth_server->authserv_path,
              auth_server->authserv_auth_script_path_fragment,
              request_type,
@@ -213,15 +216,23 @@ get_auth_uri(const char *request_type, client_type_t type, void *data)
              online_time,
              config->gw_id,
              g_channel_path?g_channel_path:"null", 
-             name?name:"null", wired);
+             name?name:"null", wired, gettimeofdaystr(time_str,sizeof(time_str)));
     }
 
-    if (safe_token) free(safe_token);
+    if (safe_token) 
+		free(safe_token);
 
+	if (nret>0)
+	{
+	    debug(LOG_DEBUG, "get_auth_uri() : 获得请求Auth服务器的地址：%s",uri);
+	}
+
+    debug(LOG_DEBUG, "get_auth_uri() : end");
     return nret>0?uri:NULL;
 }
 
-/** Initiates a transaction with the auth server, either to authenticate or to
+/** 启动与验证服务器的交易，以进行身份验证或更新服务器上的流量计数器
+ * Initiates a transaction with the auth server, either to authenticate or to
  * update the traffic counters at the server
 @param authresponse Returns the information given by the central server 
 @param request_type Use the REQUEST_TYPE_* defines in centralserver.h
@@ -234,34 +245,42 @@ get_auth_uri(const char *request_type, client_type_t type, void *data)
 t_authcode
 auth_server_request(t_authresponse * authresponse, const char *request_type, const char *ip, const char *mac,
                     const char *token, unsigned long long int incoming, unsigned long long int outgoing, 
-					unsigned long long int incoming_delta, unsigned long long int outgoing_delta,
-					time_t first_login, unsigned int online_time, char *name, int wired)
+                    unsigned long long int incoming_delta, unsigned long long int outgoing_delta,
+                    time_t first_login, unsigned int online_time, char *name, int wired)
 {
+    debug(LOG_DEBUG, "call_counters() : %s",request_type);
     s_config *config = config_get_config();
     int sockfd;
     char buf[MAX_BUF] = {0};
     char *tmp;
     char *safe_token;
+	char time_str[64];
     t_auth_serv *auth_server = get_auth_server();
 
     /* Blanket default is error. */
     authresponse->authcode = AUTH_ERROR;
 
-    sockfd = connect_auth_server();
-	if (sockfd <= 0) {
-		debug(LOG_ERR, "There was a problem connecting to the auth server!");		
-        return AUTH_ERROR;
+	//增加逻辑 By LiuQiQuan
+	//这里需要判断是否为HTTPs的Auth服务器。如果HTTPs服务器是否不需要连接，还没有试。******严重问题********
+	if (!auth_server->authserv_use_ssl)
+	{
+		debug(LOG_DEBUG, "call_counters() : %s (连接Auth服务器)",request_type);
+		sockfd = connect_auth_server();
+		if (sockfd <= 0) {
+			debug(LOG_ERR, "连接到验证服务器时出现问题！");        
+			return AUTH_ERROR;
+		}
 	}
-        /**
-	 * TODO: XXX change the PHP so we can harmonize stage as request_type
-	 * everywhere.
-	 */
+    /**
+     * TODO: XXX change the PHP so we can harmonize stage as request_type
+     * everywhere.
+     */
     safe_token = httpdUrlEncode(token);
     if(config -> deltatraffic) {
            snprintf(buf, (sizeof(buf) - 1),
-             "GET %s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&incomingdelta=%llu&outgoingdelta=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d HTTP/1.1\r\n"
-             "User-Agent: ApFree WiFiDog %s\r\n"
-			 "Connection: keep-alive\r\n"
+             "GET %s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&incomingdelta=%llu&outgoingdelta=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d&call_counter=%s HTTP/1.1\r\n"
+             "User-Agent: WiFi Firewall %s\r\n"
+             "Connection: keep-alive\r\n"
              "Host: %s\r\n"
              "\r\n",
              auth_server->authserv_path,
@@ -272,18 +291,18 @@ auth_server_request(t_authresponse * authresponse, const char *request_type, con
              outgoing, 
              incoming_delta, 
              outgoing_delta,
-			 (long long)first_login,
-			 online_time,
+             (long long)first_login,
+             online_time,
              config->gw_id,
-			 g_channel_path?g_channel_path:"null", 
-			 name?name:"null",
-			 wired,
-			 VERSION, auth_server->authserv_hostname);
+             g_channel_path?g_channel_path:"null", 
+             name?name:"null",
+             wired,gettimeofdaystr(time_str,sizeof(time_str)),
+             VERSION, auth_server->authserv_hostname);
     } else {
             snprintf(buf, (sizeof(buf) - 1),
-             "GET %s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d HTTP/1.1\r\n"
-             "User-Agent: ApFree WiFiDog %s\r\n"
-			 "Connection: keep-alive\r\n"
+             "GET %s%sstage=%s&ip=%s&mac=%s&token=%s&incoming=%llu&outgoing=%llu&first_login=%lld&online_time=%u&gw_id=%s&channel_path=%s&name=%s&wired=%d&call_counter=%s HTTP/1.1\r\n"
+             "User-Agent: WiFi Firewall %s\r\n"
+             "Connection: keep-alive\r\n"
              "Host: %s\r\n"
              "\r\n",
              auth_server->authserv_path,
@@ -291,35 +310,41 @@ auth_server_request(t_authresponse * authresponse, const char *request_type, con
              request_type,
              ip,
              mac, safe_token, incoming, outgoing, 
-			 (long long)first_login, online_time,
-			 config->gw_id, 
-			 g_channel_path?g_channel_path:"null",
-			 name,
-			 wired,
-			 VERSION, auth_server->authserv_hostname);
+             (long long)first_login, online_time,
+             config->gw_id, 
+             g_channel_path?g_channel_path:"null",
+             name,
+             wired,gettimeofdaystr(time_str,sizeof(time_str)),
+             VERSION, auth_server->authserv_hostname);
         }
     free(safe_token);
 
+    debug(LOG_DEBUG, "call_counters() : %s (请求Auth服务器/wifidog/auth)",request_type);
     char *res = http_get(sockfd, buf);
     if (NULL == res) {
-		close_auth_server();
-        debug(LOG_ERR, "There was a problem talking to the auth server!");
+        close_auth_server();
+        debug(LOG_ERR, "请求Auth服务器时出现问题!");
         return (AUTH_ERROR);
     }
 
-	decrease_authserv_fd_ref();
+    debug(LOG_DEBUG, "call_counters() : %s (关闭Auth服务器连接)",request_type);
+    decrease_authserv_fd_ref();
     if ((tmp = strstr(res, "Auth: "))) {
         if (sscanf(tmp, "Auth: %d", (int *)&authresponse->authcode) == 1) {
-            debug(LOG_INFO, "Auth server returned authentication code %d", authresponse->authcode);
+            debug(LOG_DEBUG, "call_counters() : 请求Auth服务器/wifidog/auth时返回验证码(%d)正确", authresponse->authcode);
             free(res);
+            debug(LOG_DEBUG, "call_counters() : end");
             return (authresponse->authcode);
         } else {
-            debug(LOG_WARNING, "Auth server did not return expected authentication code");
+            debug(LOG_WARNING, "请求Auth服务器/wifidog/auth时返回验证码(%d)错误", authresponse->authcode);
             free(res);
+            debug(LOG_DEBUG, "call_counters() : end");
             return (AUTH_ERROR);
         }
     }
     free(res);
+
+    debug(LOG_DEBUG, "call_counters() : end");
     return (AUTH_ERROR);
 }
 
@@ -328,19 +353,22 @@ auth_server_request(t_authresponse * authresponse, const char *request_type, con
 int
 connect_auth_server()
 {
+    debug(LOG_DEBUG, "connect_auth_server()");
     int sockfd;
 
     LOCK_CONFIG();
-    sockfd = _connect_auth_server(0);	
+    sockfd = _connect_auth_server(0);    
     UNLOCK_CONFIG();
 
     if (sockfd == -1) {
-        debug(LOG_ERR, "Failed to connect to any of the auth servers");
+        debug(LOG_ERR, "没有连上Auth服务器");
         mark_auth_offline();
     } else {
-        debug(LOG_DEBUG, "Connected to auth server");
+        debug(LOG_DEBUG, "已连上Auth服务器");
         mark_auth_online();
     }
+
+    debug(LOG_DEBUG, "connect_auth_server() : end");
     return (sockfd);
 }
 
@@ -348,52 +376,52 @@ connect_auth_server()
 void
 decrease_authserv_fd_ref()
 {
-	s_config *config = config_get_config();
+    s_config *config = config_get_config();
     t_auth_serv *auth_server = NULL;
-	
-	LOCK_CONFIG();
+    
+    LOCK_CONFIG();
 
-	for (auth_server = config->auth_servers; auth_server; auth_server = auth_server->next) {
+    for (auth_server = config->auth_servers; auth_server; auth_server = auth_server->next) {
         if (auth_server->authserv_fd > 0) {
-			auth_server->authserv_fd_ref -= 1;
-			if (auth_server->authserv_fd_ref == 0) {
-				debug(LOG_INFO, "authserv_fd_ref is 0, but not close this connection");
-			} else if (auth_server->authserv_fd_ref < 0) {
-				debug(LOG_ERR, "Impossible, authserv_fd_ref is %d", auth_server->authserv_fd_ref);
-				close(auth_server->authserv_fd);
-				auth_server->authserv_fd = -1;
-				auth_server->authserv_fd_ref = 0;
-			}
-		}
+            auth_server->authserv_fd_ref -= 1;
+            if (auth_server->authserv_fd_ref == 0) {
+                debug(LOG_DEBUG, "Auth服务器网络句柄引用次数：0，暂时不关闭网络连接。");
+            } else if (auth_server->authserv_fd_ref < 0) {
+                debug(LOG_ERR, "不可能，Auth服务器网络句柄引用次数：%d", auth_server->authserv_fd_ref);
+                close(auth_server->authserv_fd);
+                auth_server->authserv_fd = -1;
+                auth_server->authserv_fd_ref = 0;
+            }
+        }
     }
-	
-	UNLOCK_CONFIG();
+    
+    UNLOCK_CONFIG();
 }
 
 void
 close_auth_server()
 {
-	LOCK_CONFIG();
-	_close_auth_server();
-	UNLOCK_CONFIG();
+    LOCK_CONFIG();
+    _close_auth_server();
+    UNLOCK_CONFIG();
 }
 
 void
 _close_auth_server()
 {
-	s_config *config = config_get_config();
+    s_config *config = config_get_config();
     t_auth_serv *auth_server = NULL;
-	
-	for (auth_server = config->auth_servers; auth_server; auth_server = auth_server->next) {
+    
+    for (auth_server = config->auth_servers; auth_server; auth_server = auth_server->next) {
         if (auth_server->authserv_fd > 0) {
-			auth_server->authserv_fd_ref -= 1;
-			if (auth_server->authserv_fd_ref <= 0) {
-				debug(LOG_DEBUG, "authserv_fd_ref is %d, close this connection", auth_server->authserv_fd_ref);
-				close(auth_server->authserv_fd);
-				auth_server->authserv_fd = -1;
-				auth_server->authserv_fd_ref = 0;
-			} 
-		}
+            auth_server->authserv_fd_ref -= 1;
+            if (auth_server->authserv_fd_ref <= 0) {
+                debug(LOG_DEBUG, "直接关闭Auth服务器的网络连接。");
+                close(auth_server->authserv_fd);
+                auth_server->authserv_fd = -1;
+                auth_server->authserv_fd_ref = 0;
+            } 
+        }
     }
 }
 
@@ -414,31 +442,38 @@ _connect_auth_server(int level) {
 
     /* If there are no auth servers, error out, from scan-build warning. */
     if (NULL == config->auth_servers) {
-        return (-1);
+        return -1;
     }
-
-	if (!is_online()) {
-		debug(LOG_INFO, "Sorry, internet is not available!");
-		return -1;
-	}
-	
-	auth_server = config->auth_servers;
-	if (auth_server->authserv_fd > 0) {
-		if (is_socket_valid(auth_server->authserv_fd)) {
-			debug(LOG_INFO, "Use keep-alive http connection, authserv_fd_ref is %d", auth_server->authserv_fd_ref);
-			auth_server->authserv_fd_ref++;
-			return auth_server->authserv_fd;
-		} else {
-			debug(LOG_INFO, "Server has closed this connection, initialize it");
-			close(auth_server->authserv_fd);
-			auth_server->authserv_fd = -1;
-			auth_server->authserv_fd_ref = 0;
-			return _connect_auth_server(level);
-		}
-	}
-	
+    if (!is_online()) {
+        debug(LOG_DEBUG, "connect_auth_server() : <%d>对不起，互联网不可用。",level);
+        return -1;
+    }
+    
+    auth_server = config->auth_servers;
+    if (auth_server->authserv_fd > 0) {
+        if (is_socket_valid(auth_server->authserv_fd)) {
+            debug(LOG_DEBUG, "connect_auth_server() : <%d>使用keep-alive保持连接，目前网络句柄引用次数：%d", level,auth_server->authserv_fd_ref);
+            auth_server->authserv_fd_ref++;
+            return auth_server->authserv_fd;
+        } else {
+            debug(LOG_DEBUG, "connect_auth_server() : <%d>服务器已关闭此连接，将初始化它。",level);
+            close(auth_server->authserv_fd);
+            auth_server->authserv_fd = -1;
+            auth_server->authserv_fd_ref = 0;
+            return _connect_auth_server(level);
+        }
+    }
+    
     /* XXX level starts out at 0 and gets incremented by every iterations. */
     level++;
+
+	//增加逻辑 By LiuQiQuan
+	//如果当前的Auth服务器是HTTPs类型，则直接退出，让上层的函数选择是否调evpings，还是ping。
+	if (auth_server->authserv_use_ssl)
+	{
+        debug(LOG_DEBUG, "connect_auth_server() : <%d>当前Auth服务器(%s)为HTTPs，忽略本次连接。",level,auth_server->authserv_hostname);
+		return -1;
+	}
 
     /*
      * Let's calculate the number of servers we have
@@ -446,8 +481,6 @@ _connect_auth_server(int level) {
     for (auth_server = config->auth_servers; auth_server; auth_server = auth_server->next) {
         num_servers++;
     }
-    debug(LOG_DEBUG, "Level %d: Calculated %d auth servers in list", level, num_servers);
-
     if (level > num_servers) {
         /*
          * We've called ourselves too many times
@@ -455,42 +488,42 @@ _connect_auth_server(int level) {
          * at least once and none are accessible
          */
         return (-1);
-    }	
-	
+    }    
+
     /*
      * Let's resolve the hostname of the top server to an IP address
      */
-	auth_server = config->auth_servers;
+    auth_server = config->auth_servers;
     hostname = auth_server->authserv_hostname;
-    debug(LOG_DEBUG, "Level %d: Resolving auth server [%s]", level, hostname);
+    debug(LOG_DEBUG, "connect_auth_server() : <%d>正在解析Auth服务器(%s)", level, hostname);
     h_addr = wd_gethostbyname(hostname);
     if (!h_addr) {
         /*
          * DNS resolving it failed
          */
-        debug(LOG_INFO, "Level %d: Resolving auth server [%s] failed", level, hostname);
+        debug(LOG_ERR, "<%d>解析Auth服务器(%s)失败", level, hostname);
 
-		if (auth_server->last_ip) {
-			free(auth_server->last_ip);
-			auth_server->last_ip = NULL;
-		}
-		mark_auth_server_bad(auth_server);
-		return _connect_auth_server(level);
+        if (auth_server->last_ip) {
+            free(auth_server->last_ip);
+            auth_server->last_ip = NULL;
+        }
+        mark_auth_server_bad(auth_server);
+        return _connect_auth_server(level);
     } else {
         /*
          * DNS resolving was successful
          */
-		ip = safe_malloc(HTTP_IP_ADDR_LEN);
-		inet_ntop(AF_INET, h_addr, ip, HTTP_IP_ADDR_LEN);
-		ip[HTTP_IP_ADDR_LEN-1] = '\0';
-        debug(LOG_DEBUG, "Level %d: Resolving auth server [%s] succeeded = [%s]", level, hostname, ip);
+        ip = safe_malloc(HTTP_IP_ADDR_LEN);
+        inet_ntop(AF_INET, h_addr, ip, HTTP_IP_ADDR_LEN);
+        ip[HTTP_IP_ADDR_LEN-1] = '\0';
+        debug(LOG_DEBUG, "connect_auth_server() : <%d>解析Auth服务器(%s)成功，IP地址为：%s", level, hostname, ip);
 
         if (!auth_server->last_ip || strcmp(auth_server->last_ip, ip) != 0) {
             /*
              * But the IP address is different from the last one we knew
              * Update it
              */
-            debug(LOG_INFO, "Level %d: Updating last_ip IP of server [%s] to [%s]", level, hostname, ip);
+            debug(LOG_DEBUG, "connect_auth_server() : <%d>更新Auth服务器最新IP地址为%s", level, ip);
             if (auth_server->last_ip)
                 free(auth_server->last_ip);
             auth_server->last_ip = ip;
@@ -508,7 +541,7 @@ _connect_auth_server(int level) {
         /*
          * Connect to it
          */
-        debug(LOG_DEBUG, "Level %d: Connecting to auth server %s:%d", level, hostname, auth_server->authserv_http_port);
+        debug(LOG_DEBUG, "connect_auth_server() : <%d>正在连接Auth服务器(%s:%d)", level, hostname, auth_server->authserv_http_port);
         int port = htons(auth_server->authserv_http_port);
 
         their_addr.sin_port = port;
@@ -518,120 +551,133 @@ _connect_auth_server(int level) {
         free(h_addr);
 
         if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-            debug(LOG_ERR, "Level %d: Failed to create a new SOCK_STREAM socket: %s", strerror(errno));
+            debug(LOG_WARNING, "创建网络连接失败，错误号：%d，原因：%s", errno,strerror(errno));
             return (-1);
         }
 
-		int res = wd_connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr), 
-							 auth_server->authserv_connect_timeout);
-		if (res == 0) {
-			// connect successly
-			auth_server->authserv_fd = sockfd;
-			auth_server->authserv_fd_ref++;
-			return sockfd;
-		} else {
-			debug(LOG_INFO,
-				"Level %d: Failed to connect to auth server %s:%d (%d - %s). Marking it as bad and trying next if possible",
-				level, hostname, ntohs(port), errno,  strerror(errno));
-			close(sockfd);
-			mark_auth_server_bad(auth_server);
-			return _connect_auth_server(level); /* Yay recursion! */
-		}
+        int res = wd_connect(sockfd, (struct sockaddr *)&their_addr, sizeof(struct sockaddr), auth_server->authserv_connect_timeout);
+        if (res == 0) {
+            // connect successly
+            debug(LOG_DEBUG,"connect_auth_server() : <%d>连接Auth服务器成功",level);
+            auth_server->authserv_fd = sockfd;
+            auth_server->authserv_fd_ref++;
+            return sockfd;
+        } else {
+            debug(LOG_DEBUG,"connect_auth_server() : <%d>连接Auth服务器(%s:%d)失败，标识Auth服务器离线。错误号：%d，原因：%s",
+                level, hostname, ntohs(port), errno,  strerror(errno));
+            close(sockfd);
+            mark_auth_server_bad(auth_server);
+            return _connect_auth_server(level); /* Yay recursion! */
+        }
     }
 }
 
-// 0, failure; 1, success
+// 0, failure; 1, success(LiuQiQuan 还没有修改完 )
 static int
 parse_auth_server_response(t_authresponse *authresponse, struct evhttp_request *req) {
+    debug(LOG_DEBUG, "fw_counter(回调函数)");
     if (!authresponse)
         return 0;
 
     char buffer[MAX_BUF] = {0};
 
-    if (req == NULL || (req && req->response_code != 200)) {
+    if (req == NULL || (req && req->response_code != 200)) 
+    {
+        debug(LOG_ERR, "调用Auth服务器的/wifidog/auth时出现问题，返回码：%d",(req?req->response_code:-1));
         mark_auth_offline();
+
         if (req == NULL)
-            debug(LOG_WARNING, "req is NULL, it seems request timeout");
+            debug(LOG_WARNING, "fw_counter(回调函数) : 请求返回数据为NULL，应该是超时返回。");
         else {
             char buffer[MAX_BUF] = {0};
-
-            int nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
-                    buffer, MAX_BUF-1);
+  	        
+			debug(LOG_DEBUG, "fw_counter(回调函数) : 取返回数据");
+            int nread = evbuffer_remove(evhttp_request_get_input_buffer(req),buffer, MAX_BUF-1);
+            
+			debug(LOG_DEBUG, "fw_counter(回调函数) : 从Auth服务器读取 %d 字节。", nread);
             if (nread > 0)
-                debug(LOG_WARNING, "response_code [%d] buffer is %s", 
-                    req->response_code, buffer);
+		        debug(LOG_DEBUG, "fw_counter(回调函数) : 接收到Auth服务器返回数据[%s]", buffer);
         }
+    	debug(LOG_DEBUG, "fw_counter(回调函数) : end");
         return 0;
     }
-
     
     char *tmp = NULL;
 
-    int nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
-            buffer, MAX_BUF-1);
+	debug(LOG_DEBUG, "fw_counter(回调函数) : 取返回数据，返回码：%d",req->response_code);
+    int nread = evbuffer_remove(evhttp_request_get_input_buffer(req), buffer, MAX_BUF-1);
+
+	debug(LOG_DEBUG, "fw_counter(回调函数) : 从Auth服务器读取 %d 字节。", nread);
     if (nread > 0)
-        debug(LOG_DEBUG, "parse_auth_server_response buffer is %s", buffer);
+        debug(LOG_DEBUG, "fw_counter(回调函数) : 接收到Auth服务器返回数据[%s]", buffer);
     
     if (nread <= 0) {
-        debug(LOG_ERR, "There was a problem getting response from the auth server!");
+        debug(LOG_ERR, "从Auth服务器读取数据错误，错误码：%d，原因：%s", errno, strerror(errno));
         mark_auth_offline();
-    } else if ((tmp = strstr(buffer, "Auth: "))) {
+    } else if ((tmp = strstr(buffer, "Auth: "))) 
+    {
         mark_auth_online();
-        if (sscanf(tmp, "Auth: %d", (int *)&authresponse->authcode) == 1) {
-            debug(LOG_INFO, "Auth server returned authentication code %d", authresponse->authcode);
+
+        sscanf(tmp, "Auth: %d", (int *)&authresponse->authcode);
+        if (authresponse->authcode == 1) {
+            debug(LOG_INFO, "接收到Auth服务器返回码<1>访问已更改为允许, 表示通过验证。");
             return 1;
         }
     }
-    debug(LOG_WARNING, "Auth server did not return expected authentication code");
+
+	debug(LOG_WARNING, "接收到Auth服务器返回码<%d>没有返回预期的验证码。",authresponse->authcode);
+   	debug(LOG_DEBUG, "fw_counter(回调函数) : end");
     return 0;
 }
 
 static void
 reply_counter_response(t_authresponse *authresponse, struct evhttps_request_context * context) {
+    debug(LOG_DEBUG, "fw_counter(回调函数)");
+	
     struct auth_response_client *authresponse_client = context->data;
     t_client    *p1 = authresponse_client->client;
     t_client *tmp_c = NULL;
     time_t current_time = time(NULL);
+	char date_str[50];
     s_config *config = config_get_config();
 
     if (p1 == NULL) {
-        debug(LOG_DEBUG, "client is null: maybe it's trusted mac client");
+        debug(LOG_DEBUG, "fw_counter(回调函数) : 终端为空，也许是信任的Mac终端。");
         return;
     }
 
-    debug(LOG_DEBUG,
-          "Checking client %s for timeout:  Last updated %ld (%ld seconds ago), timeout delay %ld seconds, current time %ld, ",
-          p1->ip, p1->counters.last_updated, current_time - p1->counters.last_updated,
-          config->checkinterval * config->clienttimeout, current_time);
-
     if (p1->counters.last_updated + (config->checkinterval * config->clienttimeout) <= current_time) {
         /* Timing out user */
-        debug(LOG_DEBUG, "%s - Inactive for more than %ld seconds, removing client and denying in firewall",
-              p1->ip, config->checkinterval * config->clienttimeout);
-        LOCK_CLIENT_LIST();
+ 	    gettimestr(p1->counters.last_updated,date_str,sizeof(date_str)-1);
+        debug(LOG_DEBUG, "fw_counter(回调函数) : 终端(%s)超时%ld/%ld秒(最后更新:%s)，删除超时的终端并在防火墙中拒绝终端。",
+                  p1->ip, current_time - p1->counters.last_updated,config->checkinterval * config->clienttimeout,date_str);
+
+		LOCK_CLIENT_LIST();
         tmp_c = client_list_find_by_client(p1);
         if (NULL != tmp_c) {
+            debug(LOG_DEBUG, "fw_counter(回调函数) : 注销终端(%s)",p1->ip);
             evhttps_logout_client(context, tmp_c);
         } else {
-            debug(LOG_NOTICE, "Client was already removed. Not logging out.");
+            debug(LOG_DEBUG, "fw_counter(回调函数) : 终端(%s)已被删除，不需要注销登陆",p1->ip);
         }
         UNLOCK_CLIENT_LIST();
-    }else {
-        /*
-         * This handles any change in
-         * the status this allows us
-         * to change the status of a
-         * user while he's connected
-         *
-         * Only run if we have an auth server
-         * configured!
-         */
+    }else if (config->auth_servers != NULL && p1->is_online) {
+         //增加逻辑 By LiuQiQuan    
+         //上面两行增加判断，省得进去判断了。
+         /*
+          * This handles any change in the status this allows us
+          * to change the status of a user while he's connected
+          *
+          * Only run if we have an auth server configured!
+          */
+        debug(LOG_DEBUG, "fw_counter(回调函数) : 在线终端(%s)验证Auth服务器返回值(%d)",p1->ip,authresponse->authcode);
         fw_client_process_from_authserver_response(authresponse, p1);
     }
 }
 
 static void
 reply_login_response(t_authresponse *authresponse, struct evhttps_request_context *context) {
+    debug(LOG_DEBUG, "fw_counter(回调函数)");
     struct auth_response_client *authresponse_client = context->data;
     t_client            *client     = authresponse_client->client;
     t_client            *tmp        = NULL;
@@ -655,8 +701,9 @@ reply_login_response(t_authresponse *authresponse, struct evhttps_request_contex
     /* can't trust the client to still exist after n seconds have passed */
     tmp = client_list_find_by_client(client);
     if (NULL == tmp) {
-        debug(LOG_ERR, "authenticate_client(): Could not find client node for %s (%s)", client->ip, client->mac);
-        UNLOCK_CLIENT_LIST();
+        debug(LOG_ERR, "fw_counter(回调函数) : 不能找到终端 %s(%s)", client->ip, client->mac);
+
+		UNLOCK_CLIENT_LIST();
         client_list_destroy(client);    /* Free the cloned client */
         free(token);
         return;
@@ -665,12 +712,13 @@ reply_login_response(t_authresponse *authresponse, struct evhttps_request_contex
     client_list_destroy(client);        /* Free the cloned client */
     client = tmp;
     if (strcmp(token, client->token) != 0) {
-        /* If token changed, save it. */
+        debug(LOG_DEBUG, "fw_counter(回调函数) : 终端的令牌变化需要更新。");
         free(client->token);
         client->token = token;
     } else {
         free(token);
     }
+    debug(LOG_DEBUG, "fw_counter(回调函数) : 终端  %s(%s) 的令牌：%s",client->ip, client->mac,client->token);    
 
     s_config    *config = config_get_config();
     t_auth_serv *auth_server = get_auth_server();
@@ -679,47 +727,44 @@ reply_login_response(t_authresponse *authresponse, struct evhttps_request_contex
 
     case AUTH_ERROR:
         /* Error talking to central server */
-        debug(LOG_ERR, "Got ERROR from central server authenticating token %s from %s at %s", client->token, client->ip,
-              client->mac);
-        client_list_delete(client); 
+  	    debug(LOG_ERR, "终端 %s(%s) 从网关服务器得到错误的令牌，将删除终端。", client->ip,client->mac);
+
+		client_list_delete(client); 
         UNLOCK_CLIENT_LIST();
 
-        send_http_page(r, "Error!", "Error: We did not get a valid answer from the central server");
+        send_http_page(r, "错误", "我们没有从网关服务器得到有效数据。");
         break;
 
     case AUTH_DENIED:
         /* Central server said invalid token */
-        debug(LOG_INFO,
-              "Got DENIED from central server authenticating token %s from %s at %s - deleting from firewall and redirecting them to denied message",
-              client->token, client->ip, client->mac);
-        fw_deny(client);
+        debug(LOG_INFO,"终端 %s(%s) 拒绝从网关服务器得到的令牌，从防火墙中删除并将其重定向到拒绝的消息。",client->ip, client->mac);
+
+		fw_deny(client);
         client_list_delete(client);
         UNLOCK_CLIENT_LIST();
 
         safe_asprintf(&urlFragment, "%smessage=%s",
                       auth_server->authserv_msg_script_path_fragment, GATEWAY_MESSAGE_DENIED);
-        http_send_redirect_to_auth(r, urlFragment, "Redirect to denied message");
+        http_send_redirect_to_auth(r, urlFragment, "重定向到拒绝消息。");
         free(urlFragment);
         break;
 
     case AUTH_VALIDATION:
         UNLOCK_CLIENT_LIST();
         /* They just got validated for X minutes to check their email */
-        debug(LOG_INFO, "Got VALIDATION from central server authenticating token %s from %s at %s"
-              "- adding to firewall and redirecting them to activate message", client->token, client->ip, client->mac);
+        debug(LOG_INFO, "终端 %s(%s) 正在确认网关服务器得到的令牌，添加到防火墙并重定向到激活消息。", client->ip, client->mac);
         fw_allow(client, FW_MARK_PROBATION);    
 
         safe_asprintf(&urlFragment, "%smessage=%s",
                       auth_server->authserv_msg_script_path_fragment, GATEWAY_MESSAGE_ACTIVATE_ACCOUNT);
-        http_send_redirect_to_auth(r, urlFragment, "Redirect to activate message");
+        http_send_redirect_to_auth(r, urlFragment, "重定向到激活消息");
         free(urlFragment);
         break;
 
     case AUTH_ALLOWED:
         UNLOCK_CLIENT_LIST();
         /* Logged in successfully as a regular account */
-        debug(LOG_INFO, "Got ALLOWED from central server authenticating token %s from %s at %s - "
-              "adding to firewall and redirecting them to portal", client->token, client->ip, client->mac);
+        debug(LOG_INFO, "终端 %s(%s) 从网关服务器得到的令牌有效，添加到防火墙并将其重定向到主页门户。",client->ip, client->mac);
         fw_allow(client, FW_MARK_KNOWN);
         
         //>>> liudf added 20160112
@@ -731,10 +776,11 @@ reply_login_response(t_authresponse *authresponse, struct evhttps_request_contex
         if(o_client)
             offline_client_list_delete(o_client);
         UNLOCK_OFFLINE_CLIENT_LIST();
+
         //<<< liudf added end
         served_this_session++;
         if(httpdGetVariableByName(r, "type")) {
-            send_http_page_direct(r, "<htm><body>weixin auth success!</body><html>");
+            send_http_page_direct(r, "<html><body>微信授权成功！</body><html>");
         } else {
             safe_asprintf(&urlFragment, "%sgw_id=%s&channel_path=%s&mac=%s&name=%s", 
                 auth_server->authserv_portal_script_path_fragment, 
@@ -742,34 +788,30 @@ reply_login_response(t_authresponse *authresponse, struct evhttps_request_contex
                 g_channel_path?g_channel_path:"null",
                 client->mac?client->mac:"null",
                 client->name?client->name:"null");
-            http_send_redirect_to_auth(r, urlFragment, "Redirect to portal");
+            http_send_redirect_to_auth(r, urlFragment, "重定向到主页门户。");
             free(urlFragment);
         }
         break;
 
     case AUTH_VALIDATION_FAILED:
         /* Client had X minutes to validate account by email and didn't = too late */
-        debug(LOG_INFO, "Got VALIDATION_FAILED from central server authenticating token %s from %s at %s "
-              "- redirecting them to failed_validation message", client->token, client->ip, client->mac);
+        debug(LOG_INFO,"终端 %s(%s) 从网关服务器得到的令牌超时，删除终端并将其重定向到失败的验证消息。",client->ip, client->mac);
         client_list_delete(client);
         UNLOCK_CLIENT_LIST();
         
         safe_asprintf(&urlFragment, "%smessage=%s",
                       auth_server->authserv_msg_script_path_fragment, GATEWAY_MESSAGE_ACCOUNT_VALIDATION_FAILED);
-        http_send_redirect_to_auth(r, urlFragment, "Redirect to failed validation message");
+        http_send_redirect_to_auth(r, urlFragment, "重定向到失败的验证消息");
         free(urlFragment);
         break;
 
     default:
-        debug(LOG_WARNING,
-              "I don't know what the validation code %d means for token %s from %s at %s - sending error message",
-              authresponse->authcode, client->token, client->ip, client->mac);
+        debug(LOG_WARNING,"终端 %s(%s) 从网关服务器得到未知的返回码(%d)，返回发送错误消息。",client->ip,client->mac,authresponse->authcode);
         client_list_delete(client); 
         UNLOCK_CLIENT_LIST();
 
-        send_http_page_direct(r, "<htm><body>Internal Error, We can not validate your request at this time</body></html>");
+        send_http_page_direct(r, "<html><body>内部错误，我们目前无法验证您的请求。</body></html>");
         break;
-
     }
 }
 
@@ -783,7 +825,7 @@ reply_auth_server_response(t_authresponse *authresponse, struct evhttps_request_
         break;
     case request_type_logout:
         if (authresponse->authcode == AUTH_ERROR)
-            debug(LOG_WARNING, "Auth server error when reporting logout");
+            debug(LOG_WARNING, "报告注销时的Auth服务器错误。");
         break;
     case request_type_counters:
         reply_counter_response(authresponse, context);
@@ -793,11 +835,17 @@ reply_auth_server_response(t_authresponse *authresponse, struct evhttps_request_
 
 void
 process_auth_server_response(struct evhttp_request *req, void *ctx) { 
-    if (ctx == NULL)
+    if (ctx == NULL){
+		debug (LOG_ERR, "不可能，回调函数传入的ctx为空。");
         return; // impossible here
+	}
 
     t_authresponse authresponse;
+	authresponse.authcode = AUTH_ERROR;
+
+    debug(LOG_DEBUG, "fw_counter(回调函数) : 解析Auth服务器返回的数据。");
     if (parse_auth_server_response(&authresponse, req)) {
+        debug(LOG_DEBUG, "fw_counter(回调函数) : 根据Auth服务器返回码，处理后续收尾工作。");
         reply_auth_server_response(&authresponse, ctx);
     } 
 }

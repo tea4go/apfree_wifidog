@@ -73,49 +73,71 @@ static void evpings(struct evhttps_request_context *context);
 void
 thread_ping(void *arg)
 {
+    debug(LOG_DEBUG, "thread_ping()");
     pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
     pthread_mutex_t cond_mutex = PTHREAD_MUTEX_INITIALIZER;
     struct timespec timeout;
-	t_auth_serv *auth_server = get_auth_server();
+	t_auth_serv *auth_server;
 	struct evhttps_request_context *context = NULL;
 	
 	//>>> liudf added 20160411
 	// move from fw_init to here	
+	//格式：address=/.phobos.apple.com/202.175.5.114
+    debug(LOG_DEBUG, "thread_ping() : 设置泛域名白名单的防火墙规则");
 	fw_set_pan_domains_trusted();
 
 	//fix_weixin_http_dns_ip();
-
+    debug(LOG_DEBUG, "thread_ping() : 解析内置白名单");
 	parse_inner_trusted_domain_list();
+    debug(LOG_DEBUG, "thread_ping() : 设置内置白名单的防火墙规则");
 	fw_set_inner_domains_trusted();
 
+    debug(LOG_DEBUG, "thread_ping() : 解析用户白名单");
 	parse_user_trusted_domain_list();
+    debug(LOG_DEBUG, "thread_ping() : 设置用户白名单的防火墙规则");
     fw_set_user_domains_trusted();
 
+    debug(LOG_DEBUG, "thread_ping() : 设置Mac白名单的防火墙规则");
 	fw_set_trusted_maclist();
+    debug(LOG_DEBUG, "thread_ping() : 设置Mac黑名单的防火墙规则");
 	fw_set_untrusted_maclist();
 	
-	if (auth_server->authserv_use_ssl) {
-		context = evhttps_context_init();
-		if (!context) {
-			debug(LOG_ERR, "evhttps_context_init failed, process exit()");
+
+	//说明：在调用evpings或ping时，如果Auth服务器可以连上就不换，连不上才换列表下一个服务器。切记！！！
+    while (1) {
+		auth_server = get_auth_server();
+		if (auth_server==NULL)
+		{
+		    debug(LOG_ERR, "没有可用的Auth服务器，进程将退出。");
 			exit(0);
 		}
-	}
 
-    while (1) {
-        /* Make sure we check the servers at the very begining */
-        
+  	    //增加逻辑 By LiuQiQuan
+	    //对于多个Auth服务器需要在循环内来初始化，因为有可能第二个Auth服务器是HTTPs。
+		if (auth_server->authserv_use_ssl && context==NULL) {
+			debug(LOG_DEBUG, "执行HTTPs网络初始化。");
+			context = evhttps_context_init();
+			if (!context) {
+				debug(LOG_ERR, "执行HTTPs网络初始化失败，进程将退出。");
+				exit(0);
+			}
+		}
+
+		/* Make sure we check the servers at the very begining */
 		if (auth_server->authserv_use_ssl) {
-       		debug(LOG_DEBUG, "Running evpings()");
+	        //增加逻辑 By LiuQiQuan
+			//在ping函数里，如果连接Auth服务器失败，则会指向下一个Auth服务，在evpings也需要这样做，现在没有这个逻辑，需要在evhttps_request函数增加。
+       		debug(LOG_DEBUG, "thread_ping() : 对Auth服务器(%s)执行evpings请求。",auth_server->authserv_hostname);
 			evpings(context);
 		} else {
-			debug(LOG_DEBUG, "Running ping()");
+			debug(LOG_DEBUG, "thread_ping() : 对Auth服务器(%s)执行ping请求。",auth_server->authserv_hostname);
 			ping();
 		}
 		
         /* Sleep for config.checkinterval seconds... */
         timeout.tv_sec = time(NULL) + config_get_config()->checkinterval;
         timeout.tv_nsec = 0;
+  	    debug(LOG_DEBUG, "thread_ping() : 开始等待下次唤醒。需要等待%d秒。",config_get_config()->checkinterval);
 
         /* Mutex must be locked for pthread_cond_timedwait... */
         pthread_mutex_lock(&cond_mutex);
@@ -130,6 +152,8 @@ thread_ping(void *arg)
     if (auth_server->authserv_use_ssl) {
 		evhttps_context_exit(context);
 	}
+
+    debug(LOG_DEBUG, "thread_ping() : end");
 }
 
 static long
@@ -148,13 +172,14 @@ get_ping_request(const struct sys_info *info)
 {
 	t_auth_serv *auth_server = get_auth_server();
 	char *request = NULL;
-	
+	char time_str[64];
+
 	if (!info)
 		return NULL;
 	
 	int nret = safe_asprintf(&request,
-			"GET %s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&nf_conntrack_count=%lu&cpu_usage=%3.2lf%%25&wifidog_uptime=%lu&online_clients=%d&offline_clients=%d&ssid=%s&version=%s&type=%s&name=%s&channel_path=%s&wired_passed=%d HTTP/1.1\r\n"
-             "User-Agent: ApFree WiFiDog %s\r\n"
+			"GET %s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&nf_conntrack_count=%lu&cpu_usage=%3.2lf&wifidog_uptime=%lu&online_clients=%d&offline_clients=%d&ssid=%s&version=%s&type=%s&name=%s&channel_path=%s&wired_passed=%d&call_counter=%s HTTP/1.1\r\n"
+             "User-Agent: WiFi Firewall %s\r\n"
 			 "Connection: keep-alive\r\n"
              "Host: %s\r\n"
              "\r\n",
@@ -174,7 +199,7 @@ get_ping_request(const struct sys_info *info)
 			 NULL != g_type?g_type:"null",
 			 NULL != g_name?g_name:"null",
 			 NULL != g_channel_path?g_channel_path:"null",
-             config_get_config()->wired_passed,
+             config_get_config()->wired_passed,gettimeofdaystr(time_str,sizeof(time_str)),
              VERSION, auth_server->authserv_hostname);
 	
 	return nret>0?request:NULL;
@@ -190,7 +215,7 @@ get_ping_uri(const struct sys_info *info)
 		return NULL;
 	
 	int nret = safe_asprintf(&uri, 
-			"%s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&nf_conntrack_count=%lu&cpu_usage=%3.2lf%%&wifidog_uptime=%lu&online_clients=%d&offline_clients=%d&ssid=%s&version=%s&type=%s&name=%s&channel_path=%s&wired_passed=%d",
+			"%s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&nf_conntrack_count=%lu&cpu_usage=%3.2lf&wifidog_uptime=%lu&online_clients=%d&offline_clients=%d&ssid=%s&version=%s&type=%s&name=%s&channel_path=%s&wired_passed=%d",
 			 auth_server->authserv_path,
              auth_server->authserv_ping_script_path_fragment,
              config_get_config()->gw_id,
@@ -225,7 +250,7 @@ get_sys_info(struct sys_info *info)
 	
     if ((fh = fopen("/proc/uptime", "r"))) {
         if (fscanf(fh, "%lu", &info->sys_uptime) != 1)
-            debug(LOG_CRIT, "Failed to read uptime");
+            debug(LOG_CRIT, "无法读取正常运行时间(/proc/uptime)");
 
         fclose(fh);
 		fh = NULL;
@@ -247,7 +272,7 @@ get_sys_info(struct sys_info *info)
 	
 	if ((fh = fopen("/proc/loadavg", "r"))) {
         if (fscanf(fh, "%f", &info->sys_load) != 1)
-            debug(LOG_CRIT, "Failed to read loadavg");
+            debug(LOG_CRIT, "无法读取CPU负载(/proc/loadavg)");
 
         fclose(fh);
 		fh = NULL;
@@ -255,7 +280,7 @@ get_sys_info(struct sys_info *info)
 	
 	if ((fh = fopen("/proc/sys/net/netfilter/nf_conntrack_count", "r"))) {
         if (fscanf(fh, "%lu", &info->nf_conntrack_count) != 1)
-            debug(LOG_CRIT, "Failed to read nf_conntrack_count");
+            debug(LOG_CRIT, "无法读取网络连接数(/proc/sys/net/netfilter/nf_conntrack_count)");
 
         fclose(fh);
 		fh = NULL;
@@ -314,71 +339,85 @@ get_sys_info(struct sys_info *info)
 		trim_newline(channel_path);	
 		if(strlen(channel_path) > 0)
 			g_channel_path = safe_strdup(channel_path);
-		debug(LOG_DEBUG, "g_channel_path is %s", g_channel_path);
 	}
 }
 
 static void
 process_ping_response(struct evhttp_request *req, void *ctx)
 {
+	debug(LOG_DEBUG, "evpings(回调函数)");
+	t_auth_serv *auth_server = get_auth_server();
 	static int authdown = 0;
 	
 	if (req == NULL || (req && req->response_code != 200)) {
+        debug(LOG_ERR, "调用Auth服务器的/wifidog/ping时出现问题，返回码：%d",(req?req->response_code:-1));
 		mark_auth_offline();
+
+        //增加逻辑 By LiuQiQuan    
+        //需要把Auth服务器指向下一个。
+        mark_auth_server_bad(auth_server);
+
 		if (!authdown) {		
             fw_set_authdown();
             authdown = 1;
         }
+    	debug(LOG_DEBUG, "evpings(回调函数) : end");
 		return;
 	}
 	
+  	debug(LOG_DEBUG, "evpings(回调函数) : 取返回数据，返回码：%d",req->response_code);
 	char buffer[MAX_BUF] = {0};
-	int nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
-		    buffer, MAX_BUF-1);
+	int nread = evbuffer_remove(evhttp_request_get_input_buffer(req),buffer, MAX_BUF-1);
+
+    debug(LOG_DEBUG, "evpings(回调函数) : 从Auth服务器读取 %d 字节。", nread);
 	if (nread > 0)
-		debug(LOG_DEBUG, "process_ping_result buffer is %s", buffer);
+        debug(LOG_DEBUG, "evpings(回调函数) : 接收到Auth服务器返回数据[%s]", buffer);
 	
 	if (nread <= 0) {
 		mark_auth_offline();
-        debug(LOG_ERR, "There was a problem getting response from the auth server!");
+        debug(LOG_ERR, "从Auth服务器读取数据错误，错误码：%d，原因：%s", errno, strerror(errno));
         if (!authdown) {			
             fw_set_authdown();
             authdown = 1;
         }
     } else if (strstr(buffer, "Pong") == 0) {
 		mark_auth_offline();
-        debug(LOG_WARNING, "Auth server did NOT say Pong!");
+        debug(LOG_WARNING, "调用ping失败，返回：%s (正确：Pong)",buffer);
         if (!authdown) {
             fw_set_authdown();
             authdown = 1;
         }
     } else {
     	mark_auth_online();
-        debug(LOG_DEBUG, "Auth Server Says: Pong");
+        debug(LOG_INFO, "调用ping成功，返回：Pong");
         if (authdown) {
             fw_set_authup();
             authdown = 0;
         }
     }
+
+	debug(LOG_DEBUG, "evpings(回调函数) : end");
 }
 
 static void
 evpings(struct evhttps_request_context *context)
 {
+  	debug(LOG_DEBUG, "evpings()");
+  	debug(LOG_DEBUG, "evpings() : get_sys_info(获得系统信息)");
 	struct sys_info info;
-	memset(&info, 0, sizeof(info));
-		
+	memset(&info, 0, sizeof(info));	
 	get_sys_info(&info);
 	
+  	debug(LOG_DEBUG, "调用Auth服务器/wifidog/ping地址。");
 	char *uri = get_ping_uri(&info);
 	if (uri == NULL)
 		return; // impossibe 
 	
-	debug(LOG_DEBUG, "ping uri is %s", uri);
-	
 	int timeout = 2; // 2s
 	evhttps_request(context, uri, timeout, process_ping_response, NULL);
 	free(uri);
+
+  	debug(LOG_DEBUG, "evpings() : end");
 }
 /** @internal
  * This function does the actual request.
@@ -386,22 +425,29 @@ evpings(struct evhttps_request_context *context)
 static void
 ping(void)
 {
+	debug(LOG_DEBUG, "ping()");
     char *request = NULL;
     int sockfd;
     static int authdown = 0;
 	
+  	debug(LOG_DEBUG, "ping() : get_sys_info(获得系统信息)");
 	struct sys_info info;
-	memset(&info, 0, sizeof(info));
-	
+	memset(&info, 0, sizeof(info));	
 	get_sys_info(&info);
 	
 	/*
      * The ping thread does not really try to see if the auth server is actually
      * working. Merely that there is a web server listening at the port. And that
      * is done by connect_auth_server() internally.
+	 * ping线程并不真正尝试查看auth服务器是否实际工作。
+     * 只有一个Web服务器在端口上侦听。
+     * 这是由 connect_auth_server 内部完成的。
      */
+  	debug(LOG_DEBUG, "ping() : 连接Auth服务器(连不上的Auth来被移到尾部，保证服务器列表都能轮上)");
     sockfd = connect_auth_server();
     if (sockfd == -1) {
+     	debug(LOG_DEBUG, "ping() : 连接Auth服务器失败");
+
         /*
          * No auth servers for me to talk to
          */
@@ -409,40 +455,51 @@ ping(void)
             fw_set_authdown();
             authdown = 1;
         }
+
+    	debug(LOG_DEBUG, "ping() : end");
         return;
     }
 	
     /*
      * Prep & send request
      */
+  	debug(LOG_DEBUG, "ping() : 调用Auth服务器/wifidog/ping地址。");
 	request = get_ping_request(&info);
 	if (request == NULL)
+	{
+    	debug(LOG_DEBUG, "ping() : end");
 		return; // impossible
+	}
     
+  	debug(LOG_DEBUG, "ping() : 取返回数据");
     char *res = http_get(sockfd, request);
 	free(request);
+  	debug(LOG_DEBUG, "ping() : 关闭Auth服务器连接");
 	close_auth_server();
-    if (NULL == res) {
-        debug(LOG_ERR, "There was a problem pinging the auth server!");
+
+	if (NULL == res) {
+        debug(LOG_ERR, "调用Auth服务器的/wifidog/ping时出现问题");
         if (!authdown) {
             fw_set_authdown();
             authdown = 1;
         }
     } else if (strstr(res, "Pong") == 0) {
-        debug(LOG_WARNING, "Auth server did NOT say Pong!");
+        debug(LOG_WARNING, "调用ping失败，返回：%s (正确：Pong)",res);
         if (!authdown) {
             fw_set_authdown();
             authdown = 1;
         }
         free(res);
     } else {
-        debug(LOG_DEBUG, "Auth Server Says: Pong");
+        debug(LOG_INFO, "调用ping成功，返回：Pong");
         if (authdown) {
             fw_set_authup();
             authdown = 0;
         }
         free(res);
     }
+
+	debug(LOG_DEBUG, "ping() : end");
     return;
 }
 

@@ -35,12 +35,13 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include "thread_pool.h"
+#include "debug.h"
 
 //>>> liudf added 20160224
-int
-create_thread(pthread_t * thread, void *(*start_routine)(void*), void *arg)
+int create_thread(pthread_t * thread, void *(*start_routine)(void*), void *arg)
 {
 	pthread_attr_t attr;
   	int ret;
@@ -75,6 +76,7 @@ typedef enum {
  */
 
 typedef struct {
+	char task_name[255];
     void (*function)(void *);
     void *argument;
 } threadpool_task_t;
@@ -138,8 +140,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
 
     /* Allocate thread and task queue */
     pool->threads = (pthread_t *)malloc(sizeof(pthread_t) * thread_count);
-    pool->queue = (threadpool_task_t *)malloc
-        (sizeof(threadpool_task_t) * queue_size);
+    pool->queue = (threadpool_task_t *)malloc(sizeof(threadpool_task_t) * queue_size);
 
     /* Initialize mutex and conditional variable first */
     if((pthread_mutex_init(&(pool->lock), NULL) != 0) ||
@@ -169,6 +170,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
     return NULL;
 }
 
+//在线程池的队列中添加一个新任务
 int threadpool_add(threadpool_t *pool, void (*function)(void *),
                    void *argument, int flags)
 {
@@ -200,8 +202,18 @@ int threadpool_add(threadpool_t *pool, void (*function)(void *),
         }
 
         /* Add task to queue */
-        pool->queue[pool->tail].function = function;
-        pool->queue[pool->tail].argument = argument;
+		//  threadpool_task_t *queue;
+		threadpool_task_t *task_info;
+		int task_name_size;
+
+		task_info = &pool->queue[pool->tail];
+		task_name_size = sizeof(task_info->task_name);
+        strncpy(task_info->task_name,task_name,task_name_size);
+        task_info->task_name[task_name_size-1]='\0';
+		//debug(LOG_DEBUG, "threadpool_add() : %s(%s)=%d",task_info->task_name,task_name,task_name_size);
+
+		pool->queue[pool->tail].function = function;
+        pool->queue[pool->tail].argument = argument;	
         pool->tail = next;
         pool->count += 1;
 
@@ -307,15 +319,17 @@ static void *threadpool_thread(void *threadpool)
             break;
         }
 
-        /* Grab our task */
-        task.function = pool->queue[pool->head].function;
+		/* Grab our task */
+		//debug(LOG_DEBUG,"threadpool_thread() : 从线程池取出任务执行(%s)。",pool->queue[pool->head].task_name);
+		task.function = pool->queue[pool->head].function;
         task.argument = pool->queue[pool->head].argument;
+
         pool->head += 1;
         pool->head = (pool->head == pool->queue_size) ? 0 : pool->head;
         pool->count -= 1;
 
         /* Unlock */
-        pthread_mutex_unlock(&(pool->lock));
+		pthread_mutex_unlock(&(pool->lock));
 
         /* Get to work */
         (*(task.function))(task.argument);

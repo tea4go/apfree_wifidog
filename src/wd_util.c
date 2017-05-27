@@ -43,6 +43,7 @@
 #include <netinet/in.h>
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
+
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <fcntl.h>
@@ -52,6 +53,7 @@
 #include <netpacket/packet.h>
 
 #include <uci.h>
+
 #include <json-c/json.h>
 
 #include <dirent.h>
@@ -70,16 +72,16 @@
 #include "pstring.h"
 #include "version.h"
 
+//debug(LOG_DEBUG, "Locking wd_gethostbyname"); 
+//debug(LOG_DEBUG, "Locking wd_gethostbyname(OK)"); 
 #define LOCK_GHBN() do { \
-	debug(LOG_DEBUG, "Locking wd_gethostbyname()"); \
 	pthread_mutex_lock(&ghbn_mutex); \
-	debug(LOG_DEBUG, "wd_gethostbyname() locked"); \
 } while (0)
 
+//debug(LOG_DEBUG, "Unlocking wd_gethostbyname"); 
+//debug(LOG_DEBUG, "Unlocking wd_gethostbyname(OK)"); 
 #define UNLOCK_GHBN() do { \
-	debug(LOG_DEBUG, "Unlocking wd_gethostbyname()"); \
 	pthread_mutex_unlock(&ghbn_mutex); \
-	debug(LOG_DEBUG, "wd_gethostbyname() unlocked"); \
 } while (0)
 
 #ifdef __ANDROID__
@@ -113,56 +115,48 @@ mark_online()
 {
     int before;
     int after;
+	struct tm *my_tm;
+	char buf[40];
 
     before = is_online();
     time(&last_online_time);
     after = is_online();        /* XXX is_online() looks at last_online_time... */
+
+    my_tm = localtime(&last_online_time);
+	sprintf(buf, "%02d:%02d:%02d",my_tm->tm_hour, my_tm->tm_min, my_tm->tm_sec);
+	debug(LOG_DEBUG, "mark_online() : 标记网关服务器 - 最后在线时间 (%s)",buf);
 	
     if (before != after) {
-        debug(LOG_INFO, "ONLINE status became %s", (after ? "ON" : "OFF"));
+        debug(LOG_INFO, "网关服务器状态变为 ： %s (%s)",(after?"ON":"OFF"),buf);
     }
-
 }
 
 void
-mark_offline_time() 
+mark_offline() 
 {
 	int before;
     int after;
-
-    before = is_online();
+	struct tm *my_tm;
+	char buf[40];
+	
+	before = is_online();
     time(&last_offline_time);
     after = is_online();
-	
+
     if (before != after) {
-        debug(LOG_INFO, "ONLINE status became %s", (after ? "ON" : "OFF"));
+        my_tm = localtime(&last_offline_time);
+	    sprintf(buf, "%02d:%02d:%02d",my_tm->tm_hour, my_tm->tm_min, my_tm->tm_sec);
+
+        debug(LOG_INFO, "网关服务器状态变为 ： %s (%s)",(after?"ON":"OFF"),buf);
     }
 }
  
-void
-mark_offline()
-{
-    int before;
-    int after;
-
-    before = is_online();
-    time(&last_offline_time);
-    after = is_online();
-		  
-    if (before != after) {
-        debug(LOG_INFO, "ONLINE status became %s", (after ? "ON" : "OFF"));
-    }
-
-    /* If we're offline it definately means the auth server is offline */
-    mark_auth_offline();
-
-}
-
 int
 is_online()
 {
     if (last_online_time == 0 || (last_offline_time - last_online_time) >= (config_get_config()->checkinterval * 2 - 10)) {
         /* We're probably offline */
+        //debug(LOG_DEBUG, "is_online() : last_online_time=%d,last_offline_time=%d,checkinterval=%d",last_online_time,last_offline_time,config_get_config()->checkinterval);
         return (0);
     } else {
         /* We're probably online */
@@ -170,23 +164,29 @@ is_online()
     }
 }
 
+//注意：标记Auth服务器是否在线，是通过ping调用来完成。
 void
 mark_auth_online()
 {
     int before;
     int after;
+	struct tm *my_tm;
+	char buf[40];
 
     before = is_auth_online();
     time(&last_auth_online_time);
     after = is_auth_online();
 
+    my_tm = localtime(&last_auth_online_time);
+	sprintf(buf, "%02d:%02d:%02d",my_tm->tm_hour, my_tm->tm_min, my_tm->tm_sec);
+	debug(LOG_DEBUG, "mark_auth_online() : 标记Auth服务器 - 最后在线时间 (%s)",buf);
+
     if (before != after) {
-        debug(LOG_INFO, "AUTH_ONLINE status became %s", (after ? "ON" : "OFF"));
+        debug(LOG_INFO, "Auth服务器状态变为 ： %s (%s)",(after?"ON":"OFF"),buf);
     }
 
     /* If auth server is online it means we're definately online */
     mark_online();
-
 }
 
 void
@@ -194,15 +194,19 @@ mark_auth_offline()
 {
     int before;
     int after;
+	struct tm *my_tm;
+	char buf[40];
 
     before = is_auth_online();
     time(&last_auth_offline_time);
     after = is_auth_online();
 
     if (before != after) {
-        debug(LOG_INFO, "AUTH_ONLINE status became %s", (after ? "ON" : "OFF"));
-    }
+        my_tm = localtime(&last_auth_offline_time);
+	    sprintf(buf, "%02d:%02d:%02d",my_tm->tm_hour, my_tm->tm_min, my_tm->tm_sec);
 
+        debug(LOG_INFO, "Auth服务器状态变为 ： %s (%s)",(after?"ON":"OFF"),buf);
+    }
 }
 
 int
@@ -214,6 +218,7 @@ is_auth_online()
     } else if (last_auth_online_time == 0
                || (last_auth_offline_time - last_auth_online_time) >= (config_get_config()->checkinterval * 2)) {
         /* Auth is  probably offline */
+        //debug(LOG_DEBUG, "is_auth_online() : last_auth_online_time=%d,last_auth_offline_time=%d,checkinterval=%d",last_auth_online_time,last_auth_offline_time,config_get_config()->checkinterval);
         return (0);
     } else {
         /* Auth is probably online */
@@ -315,8 +320,7 @@ get_status_text()
     unsigned int days = 0, hours = 0, minutes = 0, seconds = 0;
     t_trusted_mac *p;
 	t_offline_client *oc_list;
-
-    pstr_cat(pstr, "WiFiDog status\n\n");
+	char date_str[50];
 
     uptime = time(NULL) - started_time;
     days = (unsigned int)uptime / (24 * 60 * 60);
@@ -327,19 +331,19 @@ get_status_text()
     uptime -= minutes * 60;
     seconds = (unsigned int)uptime;
 
-    pstr_cat(pstr, "Version: " VERSION "\n");
-    pstr_append_sprintf(pstr, "Uptime: %ud %uh %um %us\n", days, hours, minutes, seconds);
-    pstr_cat(pstr, "Has been restarted: ");
+	pstr_cat(pstr, "当前版本：" VERSION "\n");
+    pstr_append_sprintf(pstr, "在线时长：%u天 %u时 %u分 %u秒\n", days, hours, minutes, seconds);
+    pstr_cat(pstr, "守护模式： ");
 
     if (restart_orig_pid) {
-        pstr_append_sprintf(pstr, "yes (from PID %d)\n", restart_orig_pid);
+        pstr_append_sprintf(pstr, "是(父进程%d)\n", restart_orig_pid);
     } else {
-        pstr_cat(pstr, "no\n");
+        pstr_cat(pstr, "否\n");
     }
 
-    pstr_append_sprintf(pstr, "Internet Connectivity: %s\n", (is_online()? "yes" : "no"));
-    pstr_append_sprintf(pstr, "Auth server reachable: %s\n", (is_auth_online()? "yes" : "no"));
-    pstr_append_sprintf(pstr, "Clients served this session: %lu\n\n", served_this_session);
+    pstr_append_sprintf(pstr, "互联网状态：%s\n", (is_online()? "在线" : "离线"));
+    pstr_append_sprintf(pstr, "Auth服务器：%s\n", (is_auth_online()? "在线" : "离线"));
+    pstr_append_sprintf(pstr, "在线会话数：%lu\n\n", served_this_session);
 
     LOCK_CLIENT_LIST();
 
@@ -349,18 +353,19 @@ get_status_text()
 
     current = sublist;
 
-    pstr_append_sprintf(pstr, "%d clients " "connected.\n", count);
+    pstr_append_sprintf(pstr, "共 %d 终端连接\n", count);
 
-    count = 1;
+    count = 0;
 	active_count = 0;
     while (current != NULL) {
-        pstr_append_sprintf(pstr, "\nClient %d status [%d]\n", count, current->is_online);
-        pstr_append_sprintf(pstr, "  IP: %s MAC: %s\n", current->ip, current->mac);
-        pstr_append_sprintf(pstr, "  Token: %s\n", current->token);
-        pstr_append_sprintf(pstr, "  First Login: %lld\n", (long long)current->first_login);
-        pstr_append_sprintf(pstr, "  Name: %s\n", current->name != NULL?current->name:"null");
-        pstr_append_sprintf(pstr, "  Downloaded: %llu\n  Uploaded: %llu\n", current->counters.incoming,
-                            current->counters.outgoing);
+		gettimestr(current->first_login,date_str,sizeof(date_str)-1);
+        pstr_append_sprintf(pstr, "\n第 %d 个终端状态 ... %s\n", count+1,current->is_online?"在线":"离线");
+        pstr_append_sprintf(pstr, "  终端名称：%s\n", current->name != NULL?current->name:"无");
+		pstr_append_sprintf(pstr, "  IP地址：%s (%s)\n", current->ip, current->mac);
+        pstr_append_sprintf(pstr, "  下行流量：%llu\n", current->counters.incoming);
+		pstr_append_sprintf(pstr, "  上行流量：%llu\n", current->counters.outgoing);
+        pstr_append_sprintf(pstr, "  令牌：%s\n", current->token);
+        pstr_append_sprintf(pstr, "  登录时间：%s\n", date_str);
         count++;
 		if(current->is_online)
 			active_count++;
@@ -369,15 +374,18 @@ get_status_text()
 
     client_list_destroy(sublist);
 
-    pstr_append_sprintf(pstr, "%d client " " %d active .\n", count, active_count);
+    pstr_append_sprintf(pstr, "共 %d 终端连接，有 %d 在线。\n", count, active_count);
 
 	LOCK_OFFLINE_CLIENT_LIST();
-    pstr_append_sprintf(pstr, "%d clients " "unconnected.\n", offline_client_number());
+    pstr_append_sprintf(pstr, "共 %d 终端未连接。\n", offline_client_number());
 	oc_list = client_get_first_offline_client();
 	while(oc_list != NULL) {	
-        pstr_append_sprintf(pstr, "  IP: %s MAC: %s Last Login: %lld Hit Counts: %d Client Type: %d Temp Passed: %d\n", 
-			oc_list->ip, oc_list->mac, (long long)oc_list->last_login, 
-			oc_list->hit_counts, oc_list->client_type, oc_list->temp_passed);
+		gettimestr(oc_list->last_login,date_str,sizeof(date_str));
+        pstr_append_sprintf(pstr, "  IP地址：%s (%s) \n",oc_list->ip,oc_list->mac);
+        pstr_append_sprintf(pstr, "  命中数：%d\n",oc_list->hit_counts);
+        pstr_append_sprintf(pstr, "  终端类型：%d\n",oc_list->client_type);
+        pstr_append_sprintf(pstr, "  临时用户：%s\n",oc_list->temp_passed?"是":"否");
+        pstr_append_sprintf(pstr, "  更新时间：%s\n",date_str);
 		oc_list = oc_list->next;
 	}
 	UNLOCK_OFFLINE_CLIENT_LIST();
@@ -387,18 +395,18 @@ get_status_text()
     LOCK_CONFIG();
 
     if (config->trustedmaclist != NULL) {
-        pstr_cat(pstr, "\nTrusted MAC addresses:\n");
+        pstr_cat(pstr, "\n白名单(MAC)：\n");
 
         for (p = config->trustedmaclist; p != NULL; p = p->next) {
             pstr_append_sprintf(pstr, "  %s\n", p->mac);
         }
     }
 
-    pstr_cat(pstr, "\nAuthentication servers:\n");
+    pstr_cat(pstr, "\nAuth服务器：\n");
 
 
     for (auth_server = config->auth_servers; auth_server != NULL; auth_server = auth_server->next) {
-        pstr_append_sprintf(pstr, "  Host: %s (%s)\n", auth_server->authserv_hostname, auth_server->last_ip);
+        pstr_append_sprintf(pstr, "  主机：%s (%s)\n", auth_server->authserv_hostname, auth_server->last_ip?auth_server->last_ip:"无");
     }
 
     UNLOCK_CONFIG();
@@ -593,16 +601,13 @@ mqtt_get_trusted_iplist_text()
 	s_config *config;
 	t_domain_trusted *domain_trusted = NULL;
 	t_ip_trusted	*ip_trusted = NULL;
-
 	config = config_get_config();
 	if (config->domains_trusted == NULL)
 		return NULL;
-
 	struct json_object *jarray = json_object_new_array();
 	domain_trusted = config->domains_trusted;
 	pstr_t *pstr = pstr_new();
 	int first = 1;
-	
 	LOCK_DOMAIN();
 	struct json_object *jobj = json_object_new_object();
 	for(ip_trusted = domain_trusted->ips_trusted; ip_trusted != NULL; ip_trusted = ip_trusted->next) {
@@ -613,22 +618,17 @@ mqtt_get_trusted_iplist_text()
 			pstr_append_sprintf(pstr, ",%s", ip_trusted->ip);
 		}
 	}
-
 	char *iplist = pstr_to_string(pstr);
 	json_object_object_add(jobj, domain_trusted->domain, 
 		json_object_new_string(first?"NULL":iplist));
 	json_object_array_add(jarray, jobj);
 	if (iplist)
 		free(iplist);
-
 	UNLOCK_DOMAIN();
-
 	char *retStr = safe_strdup(json_object_to_json_string(jarray));
 	json_object_put(jarray);
-
 	return retStr;
 }
-
 char *
 get_trusted_domains_text(void)
 {
@@ -1001,7 +1001,7 @@ int
 br_is_device_wired(const char *mac){
 	if (is_valid_mac(mac)) {
 		char *bridge = config_get_config()->gw_interface;
-		debug(LOG_DEBUG,"mac %s check in bridge %s is wired", mac, bridge);
+		debug(LOG_DEBUG,"mac %s check in bridge %s is wired(有线)", mac, bridge);
 		return is_device_wired_intern(mac, bridge);
 	}
 
@@ -1070,6 +1070,7 @@ char *evb_2_string(struct evbuffer *evb, int *olen)
 
 void evdns_add_trusted_domain_ip_cb(int errcode, struct evutil_addrinfo *addr, void *ptr)
 {
+    debug(LOG_DEBUG, "parse_trusted_domain_list(回调函数)");
 	struct evdns_cb_param *param = ptr;
 	t_domain_trusted *p = param->data;
 	struct event_base	*base = param->base;
@@ -1090,7 +1091,7 @@ void evdns_add_trusted_domain_ip_cb(int errcode, struct evutil_addrinfo *addr, v
             }
             if (s) {
 				t_ip_trusted *ipt = NULL;
-				debug(LOG_DEBUG, "parse domain (%s) ip (%s)", p->domain, s);
+				debug(LOG_DEBUG, "parse_trusted_domain_list(回调函数) : 解析域名成功(%s)，IP地址：%s", p->domain, s);
 				if(p->ips_trusted == NULL) {
 					ipt = (t_ip_trusted *)malloc(sizeof(t_ip_trusted));
 					memset(ipt, 0, sizeof(t_ip_trusted));
@@ -1116,39 +1117,45 @@ void evdns_add_trusted_domain_ip_cb(int errcode, struct evutil_addrinfo *addr, v
 			}     
         }   
     } else {
-		debug(LOG_INFO, "parse domain %s , error: %s", p->domain, evutil_gai_strerror(errcode));
+		debug(LOG_DEBUG, "parse_trusted_domain_list(回调函数) : 解析域名出错(%s)。错误码：%d，原因：%s", p->domain, errcode,evutil_gai_strerror(errcode));
 	}
 	
 	if (addr)
 		evutil_freeaddrinfo(addr);
     
     if (--n_pending_requests <= 0 && n_started_requests ==  0) {
-		debug(LOG_INFO, "parse domain end, end event_loop [%d]", n_pending_requests);
+        debug(LOG_DEBUG, "parse_trusted_domain_list(回调函数) : 域名全部解析完成,之前阻塞解除。");
         event_base_loopexit(base, NULL);
 		n_pending_requests = 0;
 	}
+
+    debug(LOG_DEBUG, "parse_trusted_domain_list(回调函数) : end");
 }
 
 void evdns_parse_trusted_domain_2_ip(t_domain_trusted *p)
 {
+    debug(LOG_DEBUG, "parse_trusted_domain_list()");
 	struct event_base	*base		= NULL;
 	struct evdns_base  	*dnsbase 	= NULL;
 	
+    debug(LOG_DEBUG, "parse_trusted_domain_list() : 执行初始化libevent库。");
     LOCK_DOMAIN();
     
 	base = event_base_new();
     if (!base) {
+		debug (LOG_ERR, "执行event_base_new函数出错。");
         UNLOCK_DOMAIN();
         return;    
     }
 	
     dnsbase = evdns_base_new(base, 1);
     if (!dnsbase) {
+		debug (LOG_ERR, "执行evdns_base_new函数出错。");
         event_base_free(base);
         UNLOCK_DOMAIN();
         return;
     }
-	evdns_base_set_option(dnsbase, "timeout", config_get_config()->dns_timeout);
+	evdns_base_set_option(dnsbase, "timeout", "0.2");
     // thanks to the following article
     // http://www.wuqiong.info/archives/13/
     evdns_base_set_option(dnsbase, "randomize-case:", "0");//TurnOff DNS-0x20 encoding
@@ -1174,6 +1181,7 @@ void evdns_parse_trusted_domain_2_ip(t_domain_trusted *p)
 		memset(param, 0, sizeof(struct evdns_cb_param));
 		param->base = base;
 		param->data = p;
+        debug(LOG_DEBUG, "parse_trusted_domain_list() : 解析域名(%s)",p->domain);
 		evdns_getaddrinfo( dnsbase, p->domain, NULL ,
 			  &hints, evdns_add_trusted_domain_ip_cb, param);
 		
@@ -1182,7 +1190,7 @@ void evdns_parse_trusted_domain_2_ip(t_domain_trusted *p)
 	
 	if (n_started_requests && n_pending_requests > 0) {
         n_started_requests = 0;
-        debug(LOG_INFO, "parse domain end, begin event_loop [%d]", n_pending_requests); 
+        debug(LOG_DEBUG, "parse_trusted_domain_list() : 一直阻塞在这里，等待%d个域名解析完成。",n_pending_requests);
 		event_base_dispatch(base);	
 	}
 	
@@ -1190,6 +1198,7 @@ void evdns_parse_trusted_domain_2_ip(t_domain_trusted *p)
 	
 	evdns_base_free(dnsbase, 0);
     event_base_free(base);
+    debug(LOG_DEBUG, "parse_trusted_domain_list() : end");
 }
 
 int
@@ -1328,26 +1337,25 @@ execute(const char *cmd_line, int quiet)
 
     pid = fork();
     if (pid == 0) {             /* for the child process:         */
-        /* We don't want to see any errors if quiet flag is on */
         if (quiet)
             close(2);
         if (execvp(WD_SHELL_PATH, (char *const *)new_argv) == -1) { /* execute the command  */
-            debug(LOG_ERR, "execvp(): %s", strerror(errno));
+            debug(LOG_ERR, "执行execvp函数出错，错误码：%d，原因：%s", errno,strerror(errno));
         } else {
-            debug(LOG_ERR, "execvp() failed");
+            debug(LOG_ERR, "执行execvp函数出错，未知原因。");
         }
         exit(1);
     }
 
     /* for the parent:      */
-    debug(LOG_DEBUG, "Waiting for PID %d to exit", pid);
+    debug(LOG_DEBUG, "=  等待进程 %d 退出。", pid);
     rc = waitpid(pid, &status, 0);
-    debug(LOG_DEBUG, "Process PID %d exited", rc);
+    debug(LOG_DEBUG, "=  进程 %d 已经退出。", rc);
  	
 	signal(SIGCHLD, old_handler);
    
     if (-1 == rc) {
-        debug(LOG_ERR, "waitpid() failed (%s)", strerror(errno));
+        debug(LOG_ERR, "等待进程 %d 退出失败，错误码：%d，原因：%s", pid,errno,strerror(errno));
         return 1; /* waitpid failed. */
     }
 
@@ -1355,7 +1363,7 @@ execute(const char *cmd_line, int quiet)
         return (WEXITSTATUS(status));
     } else {
         /* If we get here, child did not exit cleanly. Will return non-zero exit code to caller*/
-        debug(LOG_DEBUG, "Child may have been killed.");
+        debug(LOG_DEBUG, "子进程 %d 已经退出。",pid);
         return 1;
     }
 }
@@ -1470,7 +1478,7 @@ get_ext_iface(void)
     struct timespec timeout;
     device = (char *)safe_malloc(16);   /* XXX Why 16? */
     gw = (char *)safe_malloc(16);
-    debug(LOG_DEBUG, "get_ext_iface(): Autodectecting the external interface from routing table");
+    debug(LOG_DEBUG, "get_ext_iface() : Autodectecting the external interface from routing table");
     while (keep_detecting) {
         input = fopen("/proc/net/route", "r");
         if (NULL == input) {
@@ -1491,7 +1499,7 @@ get_ext_iface(void)
         }
         fclose(input);
         debug(LOG_ERR,
-              "get_ext_iface(): Failed to detect the external interface after try %d (maybe the interface is not up yet?).  Retry limit: %d",
+              "get_ext_iface() : Failed to detect the external interface after try %d (maybe the interface is not up yet?).  Retry limit: %d",
               i, NUM_EXT_INTERFACE_DETECT_RETRY);
         /* Sleep for EXT_INTERFACE_DETECT_RETRY_INTERVAL seconds */
         timeout.tv_sec = time(NULL) + EXT_INTERFACE_DETECT_RETRY_INTERVAL;
@@ -1508,7 +1516,7 @@ get_ext_iface(void)
         }
         i++;
     }
-    debug(LOG_ERR, "get_ext_iface(): Failed to detect the external interface after %d tries, aborting", i);
+    debug(LOG_ERR, "get_ext_iface() : Failed to detect the external interface after %d tries, aborting", i);
     exit(1);                    /* XXX Should this be termination handler? */
     free(device);
     free(gw);
@@ -1558,5 +1566,4 @@ br_arp_get_mac(const char *i_ip, char *o_mac)
 
 	return arp_get_mac(config->gw_interface, i_ip, o_mac);
 }
-
 //<<<< liudf added end

@@ -42,7 +42,6 @@
 #include "debug.h"
 #include "safe.h"
 #include "wd_util.h"
-#include "centralserver.h"
 
 #ifdef	_MQTT_SUPPORT_
 
@@ -57,8 +56,6 @@ static struct wifidog_mqtt_op {
 	{"save_rule", save_rule_op},
 	{"get_status", get_status_op},
 	{"reboot", reboot_device_op},
-	{"reset", reset_device_op},
-	{"set_auth_serv",set_auth_server_op},
 	{NULL, NULL}
 };
 
@@ -219,94 +216,11 @@ reboot_device_op(void *mosq, const char *type, const char *value, const int req_
 	system("reboot");
 }
 
-void
-reset_device_op(void *mosq, const char *type, const char *value, const int req_id, const s_config *config)
-{
-	t_client *p = NULL;
-	
-	debug(LOG_DEBUG, "value is %s and type is %s received from mqtt",value,type);
- 
-	if(strcmp(type,"ip") == 0) {
-		LOCK_CLIENT_LIST();
-		p = client_list_find_by_ip(value);
-	}
-	else if(strcmp(type,"mac") == 0) {
-		LOCK_CLIENT_LIST();
-		p = client_list_find_by_mac(value);
-	}else {
-		return;
-	}	
-
-	if (p != NULL)  {
-		logout_client(p);
-		UNLOCK_CLIENT_LIST();
-		send_mqtt_response(mosq, req_id, 200, "Ok", config);
-	} else {
-		UNLOCK_CLIENT_LIST();
-	}
-}
-
-void
-set_auth_server_op(void *mosq, const char *type, const char *value, const int req_id, const s_config *config)
-{
-	char * hostname = config->auth_servers->authserv_hostname;
-	char * path = config->auth_servers->authserv_path;
-	char * tmp_host_name = NULL;
-	char * tmp_http_port = NULL;
-	char * tmp_path = NULL;
-		
-	debug(LOG_DEBUG, "value is %s\n", value);
-	json_object *json_request = json_tokener_parse(value);
-	if (is_error(json_request)) {
-		debug(LOG_INFO, "user request is not valid");
-		return;
-	}
-
-	json_object * jo_host_name = json_object_object_get(json_request, "hostname");
-	if(jo_host_name == NULL) {
-		debug(LOG_DEBUG, "parse host_name is null");
-	} else {
-		tmp_host_name = json_object_get_string(jo_host_name);
-	}
-
-	json_object * jo_http_port = json_object_object_get(json_request, "port");
-	if(jo_http_port == NULL) {
-		debug(LOG_DEBUG, "parse http_port is null");
-	} else {
-		tmp_http_port = json_object_get_string(jo_http_port);
-	}
-
-	json_object * jo_path = json_object_object_get(json_request, "path");
-	if(jo_path == NULL) {
-		debug(LOG_DEBUG, "parse auth server path is null");
-	} else {
-		tmp_path = json_object_get_string(jo_path);
-	}
-
-	debug(LOG_DEBUG, "tmp_host_name is %s, tmp_http_port is %s, tmp_path is %s", tmp_host_name, tmp_http_port,tmp_path);
-
-	LOCK_CONFIG();
-	if((tmp_host_name != NULL) && (strcmp(hostname,tmp_host_name) != 0)) {
-		free(hostname);
-		config->auth_servers->authserv_hostname = safe_strdup(tmp_host_name);
-	}
-	if((tmp_path != NULL) && (strcmp(path,tmp_host_name) != 0)) {
-		free(path);
-		config->auth_servers->authserv_path = safe_strdup(tmp_path);
-	}
-	if(NULL != tmp_http_port)
-		config->auth_servers->authserv_http_port = atoi(tmp_http_port);
-	UNLOCK_CONFIG();
-	
-	json_object_put(json_request);
-	send_mqtt_response(mosq, req_id, 200, "Ok", config);
-}
-
 static void
 process_mqtt_reqeust(struct mosquitto *mosq, const unsigned int req_id, const char *data, s_config *config)
 {
 	json_object *json_request = json_tokener_parse(data);
-	if (is_error(json_request)) {
+	if (!json_request) {
 		debug(LOG_INFO, "user request is not valid");
 		return;
 	}
@@ -326,8 +240,6 @@ process_mqtt_reqeust(struct mosquitto *mosq, const unsigned int req_id, const ch
 			break;
 		}
 	}
-
-	json_object_put(json_request);
 }
 
 static unsigned int
@@ -343,6 +255,7 @@ get_topic_req_id(const char *topic)
 static void 
 mqtt_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_message *message)
 {
+    debug(LOG_DEBUG, "mqtt_message_callback()");
 	s_config *config = obj;
 
 	if (message->payloadlen) {
@@ -359,6 +272,7 @@ mqtt_message_callback(struct mosquitto *mosq, void *obj, const struct mosquitto_
 static void
 mqtt_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 {
+	debug(LOG_DEBUG, "mqtt_connect_callback()");
 	s_config 		*config = obj;
 
 	char *default_topic = NULL;
@@ -369,6 +283,7 @@ mqtt_connect_callback(struct mosquitto *mosq, void *obj, int rc)
 
 void thread_mqtt(void *arg)
 {
+    debug(LOG_DEBUG, "thread_mqtt()");
 	s_config *config = arg;
 	int major = 0, minor = 0, revision = 0;
 	struct mosquitto *mosq = NULL;
@@ -379,26 +294,28 @@ void thread_mqtt(void *arg)
 	int  retval = 0;
 
  	mosquitto_lib_version(&major, &minor, &revision);
-    debug(LOG_DEBUG, "Mosquitto library version : %d.%d.%d\n", major, minor, revision); 
+    debug(LOG_DEBUG, "Mosquitto library version : %d.%d.%d", major, minor, revision); 
 
     /* Init mosquitto library */
     mosquitto_lib_init();
 
      /* Create a new mosquitto client instance */
+    debug(LOG_DEBUG, "thread_mqtt() : mosquitto_new(创建mosquitto客户端)");
     mosq = mosquitto_new(config->gw_id, true, config);
     if( mosq == NULL ) {
         switch(errno){
             case ENOMEM:
-                debug(LOG_INFO, "Error: Out of memory.\n");
+                debug(LOG_INFO, "Error: Out of memory.");
                 break;
             case EINVAL:
-                debug(LOG_INFO, "Error: Invalid id and/or clean_session.\n");
+                debug(LOG_INFO, "Error: Invalid id and/or clean_session.");
                 break;
         }
         mosquitto_lib_cleanup();
         return ;
     }
    	
+	debug(LOG_DEBUG, "thread_mqtt() : mosquitto_tls_set");
    	if (mosquitto_tls_set(mosq, cafile, NULL, NULL, NULL, NULL)) {
    		debug(LOG_INFO, "Error : Problem setting TLS option");
     	mosquitto_destroy(mosq);
@@ -407,6 +324,7 @@ void thread_mqtt(void *arg)
    	}
 
    	// Attention! this setting is not secure, but can simplify our deploy
+	debug(LOG_DEBUG, "thread_mqtt() : mosquitto_tls_insecure_set(注意！ 此设置不安全，但可以简化我们的部署)");
     if (mosquitto_tls_insecure_set(mosq, true)) {
     	debug(LOG_INFO, "Error : Problem setting TLS insecure option");
     	mosquitto_destroy(mosq);
@@ -414,15 +332,17 @@ void thread_mqtt(void *arg)
         return ;
     }
 
+
     mosquitto_connect_callback_set(mosq, mqtt_connect_callback);
     mosquitto_message_callback_set(mosq, mqtt_message_callback);
 
+    debug(LOG_DEBUG, "thread_mqtt() : 连接MQTT服务器(%s:%d)",host, port);
    	switch( retval = mosquitto_connect(mosq, host, port, keepalive) ) {
         case MOSQ_ERR_INVAL:
-            debug(LOG_INFO, "Error : %s\n", mosquitto_strerror(retval)); 
+            debug(LOG_ERR, "连接MQTT服务器(%s:%d)失败，原因：%d-%s",host, port, retval,mosquitto_strerror(retval)); 
             break;
         case MOSQ_ERR_ERRNO:
-            debug(LOG_INFO, "Error : %s\n", strerror(errno));
+            debug(LOG_ERR, "连接MQTT服务器(%s:%d)失败，原因：%d-%s",host, port, errno,strerror(errno));
             break;
 
         mosquitto_destroy(mosq);
@@ -430,10 +350,14 @@ void thread_mqtt(void *arg)
         return ;
     }
 
+    debug(LOG_DEBUG, "thread_mqtt() : mosquitto_loop_forever");
     retval = mosquitto_loop_forever(mosq, -1, 1);
+    debug(LOG_DEBUG, "thread_mqtt() : mosquitto_loop_forever() %d",retval);
 
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
+
+    debug(LOG_DEBUG, "thread_mqtt() : end");
 }
 
 #else

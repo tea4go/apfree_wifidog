@@ -101,6 +101,8 @@ not_found:
 
 static void
 http_403_callback(struct evhttp_request *req, void *arg) {
+    debug(LOG_DEBUG, "thread_http_server_getdata()");
+    debug(LOG_DEBUG, "thread_http_server_getdata() : 接收到数据");
 	struct evbuffer *evb = NULL;
 	const char *docroot = arg;
 	const char *uri = evhttp_request_get_uri(req);
@@ -191,15 +193,20 @@ done:
 		free(whole_path);
 	if (evb)
 		evbuffer_free(evb);	
+
+    debug(LOG_DEBUG, "thread_http_server_getdata() : end");
 }
 
 static void serve_403_http(const char *address, const t_http_server *http_server) {
+    debug(LOG_DEBUG, "thread_http_server()");
 	struct event_base *base;
 	struct evhttp *http;
-	struct evhttp_bound_socket *handle = NULL;
+	struct evhttp_bound_socket *handle;
 
+    debug(LOG_DEBUG, "thread_http_server() : 执行初始化libevent库。");
 	base = event_base_new();
 	if (!base) {
+		debug (LOG_ERR, "执行event_base_new函数出错。");
 		return;
 	}
 
@@ -209,6 +216,7 @@ static void serve_403_http(const char *address, const t_http_server *http_server
 		goto end_loop;
 	}
 
+    debug(LOG_DEBUG, "thread_http_server() : 注册HTTP服务器的收到请求的回调函数。URL:%s",http_server->base_path);
 	evhttp_set_gencb(http, http_403_callback, http_server->base_path);
 
 	handle = evhttp_bind_socket_with_handle(http, address, http_server->gw_http_port);
@@ -216,6 +224,7 @@ static void serve_403_http(const char *address, const t_http_server *http_server
 		goto end_loop;
 	}
 
+    debug(LOG_DEBUG, "thread_http_server() : 一直阻塞在这里，等待网络请求。");
 	event_base_dispatch(base);
 
 end_loop:
@@ -227,6 +236,8 @@ end_loop:
 
 	if (base)
 		event_base_free(base);
+
+    debug(LOG_DEBUG, "thread_http_server() : end");
 }
 
 void thread_http_server(void *args) {

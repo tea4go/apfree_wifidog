@@ -36,36 +36,32 @@ extern pthread_mutex_t offline_client_list_mutex;
 /** Counters struct for a client's bandwidth usage (in bytes)
  */
 typedef struct _t_counters {
-    unsigned long long incoming;        /**< @brief Incoming data total*/
-    unsigned long long outgoing;        /**< @brief Outgoing data total*/
+    unsigned long long incoming;                /**< @brief Incoming data total*/
+    unsigned long long outgoing;                /**< @brief Outgoing data total*/
     unsigned long long incoming_history;        /**< @brief Incoming data before wifidog restarted*/
     unsigned long long outgoing_history;        /**< @brief Outgoing data before wifidog restarted*/
     /* Delta traffic stats by t123yh */
-    unsigned long long incoming_delta;                    /**< @brief Incoming data after last report*/
-    unsigned long long outgoing_delta;                    /**< @brief Outgoing data after last report*/
-    time_t last_updated;        /**< @brief Last update of the counters */
+    unsigned long long incoming_delta;          /**< @brief Incoming data after last report*/
+    unsigned long long outgoing_delta;          /**< @brief Outgoing data after last report*/
+    time_t last_updated;                        /**< @brief Last update of the counters */
 } t_counters;
 
 /** Client node for the connected client linked list.
  */
 typedef struct _t_client {
     struct _t_client *next;             /**< @brief Pointer to the next client */
-    unsigned long long id;           /**< @brief Unique ID per client */
+    unsigned long long id;              /**< @brief Unique ID per client */
     char *ip;                           /**< @brief Client Ip address */
     char *mac;                          /**< @brief Client Mac address */
     char *token;                        /**< @brief Client token */
-    int fw_connection_state;     /**< @brief Connection state in the
-						     firewall */
-    int fd;                             /**< @brief Client HTTP socket (valid only
-					     during login before one of the
-					     _http_* function is called */
-    t_counters counters;                /**< @brief Counters for input/output of
-					     the client. */
-	//<<< liudf added 20160112	
-	time_t 	first_login;		/**< @brief first login time */
-	char	*name;			/**< @brief device name */
+    int fw_connection_state;            /**< @brief Connection state in the firewall */
+    int fd;                             /**< @brief Client HTTP socket (valid only during login before one of the _http_* function is called */
+    t_counters counters;                /**< @brief Counters for input/output of the client. */
+	                                    //<<< liudf added 20160112	
+	time_t 	first_login;		        /**< @brief first login time */
+	char	*name;			            /**< @brief device name */
 	short 	is_online;
-	short	wired;	/** default 0: wireless */
+	short	wired;	                    /** default 0: wireless */
 } t_client;
 
 // liudf added 20160216
@@ -161,28 +157,29 @@ int add_online_client(const char *);
 
 char *get_online_client_uri(t_client *);
 
+//debug(LOG_DEBUG, "Locking offline client list"); 
+//debug(LOG_DEBUG, "Locking offline client list(OK)"); 
 #define LOCK_OFFLINE_CLIENT_LIST() do { \
-	debug(LOG_DEBUG, "Locking offline client list"); \
 	pthread_mutex_lock(&offline_client_list_mutex); \
-	debug(LOG_DEBUG, "Offline client list locked"); \
 } while (0)
 
+//debug(LOG_DEBUG, "Unlocking offline client list"); 
+//debug(LOG_DEBUG, "Unlocking offline client list(OK)"); 
 #define UNLOCK_OFFLINE_CLIENT_LIST() do { \
-	debug(LOG_DEBUG, "Unlocking offline client list"); \
 	pthread_mutex_unlock(&offline_client_list_mutex); \
-	debug(LOG_DEBUG, "Offline client list unlocked"); \
 } while (0)
 
+//debug(LOG_DEBUG, "Locking client list"); 
+//debug(LOG_DEBUG, "Locking client list(OK)"); 
 #define LOCK_CLIENT_LIST() do { \
-	debug(LOG_DEBUG, "Locking client list"); \
 	pthread_mutex_lock(&client_list_mutex); \
-	debug(LOG_DEBUG, "Client list locked"); \
 } while (0)
+
+//debug(LOG_DEBUG, "Unlocking client list"); 
+//debug(LOG_DEBUG, "Unlocking client list(OK)"); 
 
 #define UNLOCK_CLIENT_LIST() do { \
-	debug(LOG_DEBUG, "Unlocking client list"); \
 	pthread_mutex_unlock(&client_list_mutex); \
-	debug(LOG_DEBUG, "Client list unlocked"); \
 } while (0)
 
 #endif                          /* _CLIENT_LIST_H_ */

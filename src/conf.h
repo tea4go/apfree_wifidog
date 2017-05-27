@@ -37,17 +37,17 @@
 
 /** Defaults configuration values */
 #ifndef SYSCONFDIR
-#define DEFAULT_CONFIGFILE "/etc/wifidog.conf"
-#define DEFAULT_HTMLMSGFILE "/etc/wifidog-msg.html"
-#define DEFAULT_REDIRECTFILE "/etc/wifidog-redir.html"
-#define	DEFAULT_INTERNET_OFFLINE_FILE	"/etc/internet-offline.html"
-#define	DEFAULT_AUTHSERVER_OFFLINE_FILE	"/etc/authserver-offline.html"
+#define DEFAULT_CONFIGFILE               "/etc/wifidog.conf"
+#define DEFAULT_HTMLMSGFILE              "/etc/wifidog-msg.html"
+#define DEFAULT_REDIRECTFILE             "/etc/wifidog-redir.html"
+#define DEFAULT_INTERNET_OFFLINE_FILE    "/etc/internet-offline.html"
+#define DEFAULT_AUTHSERVER_OFFLINE_FILE  "/etc/authserver-offline.html"
 #else
-#define DEFAULT_CONFIGFILE SYSCONFDIR"/wifidog.conf"
-#define DEFAULT_HTMLMSGFILE SYSCONFDIR"/wifidog-msg.html"
-#define DEFAULT_REDIRECTFILE SYSCONFDIR"/wifidog-redir.html"
-#define	DEFAULT_INTERNET_OFFLINE_FILE	SYSCONFDIR"/etc/internet-offline.html"
-#define	DEFAULT_AUTHSERVER_OFFLINE_FILE	SYSCONFDIR"/etc/authserver-offline.html"
+#define DEFAULT_CONFIGFILE SYSCONFDIR    "/wifidog.conf"
+#define DEFAULT_HTMLMSGFILE SYSCONFDIR   "/wifidog-msg.html"
+#define DEFAULT_REDIRECTFILE SYSCONFDIR  "/wifidog-redir.html"
+#define DEFAULT_INTERNET_OFFLINE_FILE    SYSCONFDIR"/etc/internet-offline.html"
+#define DEFAULT_AUTHSERVER_OFFLINE_FILE  SYSCONFDIR"/etc/authserver-offline.html"
 #endif
 #define DEFAULT_DAEMON 1
 #define DEFAULT_DEBUGLEVEL LOG_INFO
@@ -90,26 +90,26 @@
 #define FWRULESET_LOCKED_USERS "locked-users"
 /*@}*/
 
-#define	DEFAULT_CA_CRT_FILE		"/etc/apfree.ca"
-#define	DEFAULT_SVR_CRT_FILE	"/etc/apfree.crt"
-#define	DEFAULT_SVR_KEY_FILE	"/etc/apfree.key"
-#define DEFAULT_WWW_PATH		"/etc/www/"
+#define DEFAULT_CA_CRT_FILE     "/etc/apfree.ca"
+#define DEFAULT_SVR_CRT_FILE    "/etc/apfree.crt"
+#define DEFAULT_SVR_KEY_FILE    "/etc/apfree.key"
+#define DEFAULT_WWW_PATH        "/etc/www/"
 
-#define DEFAULT_MQTT_SERVER		"wifidog.kunteng.org"
+#define DEFAULT_MQTT_SERVER     "192.168.1.144"
 
-#define	WIFIDOG_REDIR_HTML_CONTENT	"setTimeout(function() {location.href = \"%s\";}, 10);"
+#define WIFIDOG_REDIR_HTML_CONTENT    "setTimeout(function() {location.href = \"%s\";}, %d);"
 
 
 typedef enum trusted_domain_t_ {
-	USER_TRUSTED_DOMAIN,
-	INNER_TRUSTED_DOMAIN,
-	TRUSTED_PAN_DOMAIN,
+    USER_TRUSTED_DOMAIN,
+    INNER_TRUSTED_DOMAIN,
+    TRUSTED_PAN_DOMAIN,
 } trusted_domain_t;
 
 typedef enum mac_choice_t_ {
-	TRUSTED_MAC,
-	UNTRUSTED_MAC,
-	ROAM_MAC
+    TRUSTED_MAC,
+    UNTRUSTED_MAC,
+    ROAM_MAC
 } mac_choice_t;
 //<<< liudf added end
 
@@ -125,22 +125,20 @@ extern pthread_mutex_t domains_mutex;
  * Information about the authentication server
  */
 typedef struct _auth_serv_t {
-    char *authserv_hostname;    /**< @brief Hostname of the central server */
-    char *authserv_path;        /**< @brief Path where wifidog resides */
+    char *authserv_hostname;                    /**< @brief Hostname of the central server */
+    char *authserv_path;                        /**< @brief Path where wifidog resides */
     char *authserv_login_script_path_fragment;  /**< @brief This is the script the user will be sent to for login. */
     char *authserv_portal_script_path_fragment; /**< @brief This is the script the user will be sent to after a successfull login. */
     char *authserv_msg_script_path_fragment;    /**< @brief This is the script the user will be sent to upon error to read a readable message. */
     char *authserv_ping_script_path_fragment;   /**< @brief This is the ping heartbeating script. */
     char *authserv_auth_script_path_fragment;   /**< @brief This is the script that talks the wifidog gateway protocol. */
-    int authserv_http_port;     /**< @brief Http port the central server
-				     listens on */
-    int authserv_ssl_port;      /**< @brief Https port the central server
-				     listens on */
-    int authserv_use_ssl;       /**< @brief Use SSL or not */
-    char *last_ip;      /**< @brief Last ip used by authserver */
-	int	authserv_fd;	/** @brief this support keep-alive http connection*/
-	int	authserv_fd_ref; /** @brief is this socket fd being used or not*/
-	int authserv_connect_timeout; /** @brief when connect to auth server, seconds to wait time*/
+    int authserv_http_port;                     /**< @brief Http port the central server listens on */
+    int authserv_ssl_port;                      /**< @brief Https port the central server listens on */
+    int authserv_use_ssl;                       /**< @brief Use SSL or not */
+    char *last_ip;                              /**< @brief Last ip used by authserver */
+    int authserv_fd;                            /**< @brief this support keep-alive http connection*/
+    int authserv_fd_ref;                        /**< @brief is this socket fd being used or not*/
+    int authserv_connect_timeout;               /**< @brief when connect to auth server, seconds to wait time*/
     struct _auth_serv_t *next;
 } t_auth_serv;
 
@@ -180,13 +178,13 @@ typedef struct _firewall_ruleset_t {
  * Trusted MAC Addresses
  */
 typedef struct _trusted_mac_t {
-    char 	*mac;
-	char 	*ip;
-	int		is_online;
+    char     *mac;
+    char     *ip;
+    int        is_online;
     struct _trusted_mac_t *next;
 } t_trusted_mac;
 
-typedef t_trusted_mac	t_untrusted_mac;
+typedef t_trusted_mac    t_untrusted_mac;
 
 /**
  * Popular Servers
@@ -203,35 +201,35 @@ typedef struct _popular_server_t {
  */
 
 typedef struct _ip_trusted_t {
-	char	ip[HTTP_IP_ADDR_LEN];
-	struct _ip_trusted_t *next;
+    char    ip[HTTP_IP_ADDR_LEN];
+    struct _ip_trusted_t *next;
 } t_ip_trusted;
 
 typedef struct _domain_trusted_t {
-	char *domain;
-	t_ip_trusted	*ips_trusted;
-	int		invalid;
-	struct _domain_trusted_t *next;
+    char *domain;
+    t_ip_trusted    *ips_trusted;
+    int        invalid;
+    struct _domain_trusted_t *next;
 } t_domain_trusted;
 
 typedef struct _https_server_t {
-	char	*ca_crt_file;
-	char	*svr_crt_file;
-	char	*svr_key_file;
-	short	gw_https_port;
+    char    *ca_crt_file;
+    char    *svr_crt_file;
+    char    *svr_key_file;
+    short    gw_https_port;
 } t_https_server;
 
 typedef struct _http_server_t {
-	char 	*base_path;
-	short	gw_http_port;
+    char     *base_path;
+    short    gw_http_port;
 }t_http_server;
 
 typedef struct _mqtt_server_t {
-	char 	*hostname;
-	short	port;
-	char 	*cafile;
-	char 	*crtfile;
-	char 	*keyfile;
+    char     *hostname;
+    short    port;
+    char     *cafile;
+    char     *crtfile;
+    char     *keyfile;
 }t_mqtt_server;
 // <<<< liudf added end
 
@@ -239,73 +237,61 @@ typedef struct _mqtt_server_t {
  * Configuration structure
  */
 typedef struct {
-    char *configfile;       /**< @brief name of the config file */
+    char *configfile;           /**< @brief name of the config file */
     char *htmlmsgfile;          /**< @brief name of the HTML file used for messages */
     char *wdctl_sock;           /**< @brief wdctl path to socket */
-    char *internal_sock;                /**< @brief internal path to socket */
-    int deltatraffic;   /**< @brief reset each user's traffic (Outgoing and Incoming) value after each Auth operation. */
+    char *internal_sock;        /**< @brief internal path to socket */
+    int deltatraffic;           /**< @brief reset each user's traffic (Outgoing and Incoming) value after each Auth operation. */
     int daemon;                 /**< @brief if daemon > 0, use daemon mode */
-    char *pidfile;            /**< @brief pid file path of wifidog */
-    char *external_interface;   /**< @brief External network interface name for
-				     firewall rules */
-    char *gw_id;                /**< @brief ID of the Gateway, sent to central
-				     server */
+    char *pidfile;              /**< @brief pid file path of wifidog */
+    char *external_interface;   /**< @brief External network interface name for firewall rules */
+    char *gw_id;                /**< @brief ID of the Gateway, sent to central server */
     char *gw_interface;         /**< @brief Interface we will accept connections on */
-    char *gw_address;           /**< @brief Internal IP address for our web
-				     server */
+    char *gw_address;           /**< @brief Internal IP address for our web server */
     int gw_port;                /**< @brief Port the webserver will run on */
 
     t_auth_serv *auth_servers;  /**< @brief Auth servers list */
-    char *httpdname;            /**< @brief Name the web server will return when
-				     replying to a request */
-    int httpdmaxconn;           /**< @brief Used by libhttpd, not sure what it
-				     does */
+    char *httpdname;            /**< @brief Name the web server will return when replying to a request */
+    int httpdmaxconn;           /**< @brief Used by libhttpd, not sure what it does */
     char *httpdrealm;           /**< @brief HTTP Authentication realm */
     char *httpdusername;        /**< @brief Username for HTTP authentication */
     char *httpdpassword;        /**< @brief Password for HTTP authentication */
-    int clienttimeout;          /**< @brief How many CheckIntervals before a client
-				     must be re-authenticated */
-    int checkinterval;          /**< @brief Frequency the the client timeout check
-				     thread will run. */
+    int clienttimeout;          /**< @brief ¿Í»§¶Ë³¬Ê±(clienttimeout * CheckIntervals) How many CheckIntervals before a client must be re-authenticated */
+    int checkinterval;          /**< @brief Frequency the the client timeout check thread will run. */
     int proxy_port;             /**< @brief Transparent proxy port (0 to disable) */
-    char *ssl_certs;            /**< @brief Path to SSL certs for auth server
-		verification */
-    int ssl_verify;             /**< @brief boolean, whether to enable
-		auth server certificate verification */
-    char *ssl_cipher_list;  /**< @brief List of SSL ciphers allowed. Optional. */
-    int ssl_use_sni;            /**< @brief boolean, whether to enable
-    auth server for server name indication, the TLS extension */
+    char *ssl_certs;            /**< @brief Path to SSL certs for auth server verification */
+    int ssl_verify;             /**< @brief boolean, whether to enable auth server certificate verification */
+    char *ssl_cipher_list;      /**< @brief List of SSL ciphers allowed. Optional. */
+    int ssl_use_sni;            /**< @brief boolean, whether to enable  auth server for server name indication, the TLS extension */
     t_firewall_ruleset *rulesets;       /**< @brief firewall rules */
-    t_trusted_mac *trustedmaclist; /**< @brief list of trusted macs */
-    char *arp_table_path; /**< @brief Path to custom ARP table, formatted
-        like /proc/net/arp */
-    t_popular_server *popular_servers; /**< @brief list of popular servers */
-	
-	// liudf 20161116 added
-	t_https_server	*https_server;
-	t_http_server 	*http_server;
-	
-	t_mqtt_server	*mqtt_server;
-	// liudf 20151223 added
-	// trusted domain
-	t_domain_trusted *pan_domains_trusted; /** pan-domain trusted list*/
-	t_domain_trusted *domains_trusted; /** domains list, seperate with comma*/
-	t_domain_trusted *inner_domains_trusted; /** inner domains list, user cannot configure*/
-	t_trusted_mac	*roam_maclist; /** roam mac list*/
-	t_untrusted_mac	*mac_blacklist; /** blacklist mac*/
-	char 	*htmlredirfile;
-	char	*internet_offline_file;
-	char	*authserver_offline_file;
-	short	wired_passed;
-	short	parse_checked; 
-	short	js_filter; /** boolean, whether to enable javascript filter url request*/
-	short	pool_mode;
-	short	thread_number;
-	short	queue_size;
-	short	no_auth;
-	short	work_mode; /** when work_mode 1, it will drop all packets default*/
-	int 	update_domain_interval; /** 0, no need update; otherwise update every update_domain_interval*checkinterval seconds*/
-	char * dns_timeout; /*time to limit during of parsing the dns */
+    t_trusted_mac *trustedmaclist;      /**< @brief list of trusted macs */
+    char *arp_table_path;               /**< @brief Path to custom ARP table, formatted like /proc/net/arp */
+    t_popular_server *popular_servers;  /**< @brief list of popular servers */
+    
+    // liudf 20161116 added
+    t_https_server    *https_server;
+    t_http_server     *http_server;
+    
+    t_mqtt_server    *mqtt_server;
+    // liudf 20151223 added
+    // trusted domain
+    t_domain_trusted *pan_domains_trusted; /** pan-domain trusted list*/
+    t_domain_trusted *domains_trusted; /** domains list, seperate with comma*/
+    t_domain_trusted *inner_domains_trusted; /** inner domains list, user cannot configure*/
+    t_trusted_mac    *roam_maclist; /** roam mac list*/
+    t_untrusted_mac    *mac_blacklist; /** blacklist mac*/
+    char     *htmlredirfile;
+    char    *internet_offline_file;
+    char    *authserver_offline_file;
+    short    wired_passed;
+    short    parse_checked; 
+    short    js_filter; /** boolean, whether to enable javascript filter url request*/
+    short    pool_mode;
+    short    thread_number;
+    short    queue_size;
+    short    no_auth;
+    short    work_mode; /** when work_mode 1, it will drop all packets default*/
+    int      update_domain_interval; /** 0, no need update; otherwise update every update_domain_interval*checkinterval seconds*/
 } s_config;
 
 /** @brief Get the current gateway configuration */
@@ -445,36 +431,36 @@ void __clear_trusted_iplist(void);
 void clear_trusted_ip_list(void);
 
 // online clients
-int 	g_online_clients;
-char 	*g_version;
-char	*g_type; // hardware type
-char	*g_name; // firmware name
-char	*g_channel_path;
-char	*g_ssid;
+int      g_online_clients;
+char     *g_version;
+char    *g_type; // hardware type
+char    *g_name; // firmware name
+char    *g_channel_path;
+char    *g_ssid;
 
-#define	LOCK_DOMAIN() do { \
-	debug(LOG_INFO, "Locking domain"); \
-	pthread_mutex_lock(&domains_mutex);	\
-	debug(LOG_INFO, "Domains locked"); \
+//debug(LOG_DEBUG, "Locking Domain"); 
+//debug(LOG_DEBUG, "Locking Domain(OK)"); 
+#define    LOCK_DOMAIN() do { \
+    pthread_mutex_lock(&domains_mutex);    \
 } while (0)
 
+//debug(LOG_DEBUG, "Unlocking Domain"); 
+//debug(LOG_DEBUG, "Unlocking Domain(OK)"); 
 #define UNLOCK_DOMAIN() do { \
-	debug(LOG_DEBUG, "Unlocking domain"); \
-	pthread_mutex_unlock(&domains_mutex);	\
-	debug(LOG_DEBUG, "Domain unlocked"); \
+    pthread_mutex_unlock(&domains_mutex);    \
 } while (0)
 // <<< liudf added end
 
+//debug(LOG_DEBUG, "Locking Config"); 
+//debug(LOG_DEBUG, "Locking Config(OK)"); 
 #define LOCK_CONFIG() do { \
-	debug(LOG_DEBUG, "Locking config"); \
-	pthread_mutex_lock(&config_mutex); \
-	debug(LOG_DEBUG, "Config locked"); \
+   pthread_mutex_lock(&config_mutex); \
 } while (0)
 
+//debug(LOG_DEBUG, "Unlocking Config");
+//debug(LOG_DEBUG, "Unlocking Config(OK)"); 
 #define UNLOCK_CONFIG() do { \
-	debug(LOG_DEBUG, "Unlocking config"); \
-	pthread_mutex_unlock(&config_mutex); \
-	debug(LOG_DEBUG, "Config unlocked"); \
+    pthread_mutex_unlock(&config_mutex); \
 } while (0)
 
 #endif                          /* _CONFIG_H_ */

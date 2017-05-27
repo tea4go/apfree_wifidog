@@ -161,12 +161,11 @@ thread_wdctl(void *arg)
     pthread_t tid;
     socklen_t len;
 
-    debug(LOG_DEBUG, "Starting wdctl.");
+    debug(LOG_DEBUG, "启动 wdctl 线程。");
 
     sock_name = (char *)arg;
-    debug(LOG_DEBUG, "Socket name: %s", sock_name);
+    debug(LOG_DEBUG, "创建Unix套接名：%s", sock_name);
 
-    debug(LOG_DEBUG, "Creating socket");
     wdctl_socket_server = create_unix_socket(sock_name);
     if (-1 == wdctl_socket_server) {
         termination_handler(0);
@@ -179,13 +178,13 @@ thread_wdctl(void *arg)
         memset(&sa_un, 0, len);
         fd = (int *)safe_malloc(sizeof(int));
         if ((*fd = accept(wdctl_socket_server, (struct sockaddr *)&sa_un, &len)) == -1) {
-            debug(LOG_ERR, "Accept failed on control socket: %s", strerror(errno));
+            debug(LOG_ERR, "执行Accept函数失败，错误号：%d，原因：%s", errno, strerror(errno));
             free(fd);
         } else {
-            debug(LOG_DEBUG, "Accepted connection on wdctl socket %d (%s)", fd, sa_un.sun_path);
+            debug(LOG_DEBUG, "接收到网络请求，创建处理 wdctl 线程。句柄：%d，名称：%s", fd, sock_name);
             result = pthread_create(&tid, NULL, &thread_wdctl_handler, (void *)fd);
             if (result != 0) {
-                debug(LOG_ERR, "FATAL: Failed to create a new thread (wdctl handler) - exiting");
+                debug(LOG_ERR, "接收到网络请求，创建处理 wdctl 线程失败。");
                 free(fd);
                 termination_handler(0);
             }
@@ -202,11 +201,11 @@ thread_wdctl_handler(void *arg)
     size_t read_bytes, i;
     ssize_t len;
 
-    debug(LOG_DEBUG, "Entering thread_wdctl_handler....");
+    debug(LOG_DEBUG, "进入 wdctl 处理线程。");
 
     fd = *((int *)arg);
     free(arg);
-    debug(LOG_DEBUG, "Read bytes and stuff from %d", fd);
+    debug(LOG_DEBUG, "从为 %d 网络套接字读取数据。", fd);
 
     /* Init variables */
     read_bytes = 0;
@@ -229,13 +228,13 @@ thread_wdctl_handler(void *arg)
     }
 
     if (!done) {
-        debug(LOG_ERR, "Invalid wdctl request.");
+        debug(LOG_ERR, "无效的网络请求。");
         shutdown(fd, 2);
         close(fd);
         pthread_exit(NULL);
     }
 
-    debug(LOG_DEBUG, "Request received: [%s]", request);
+    debug(LOG_DEBUG, "接收到命令：[%s]", request);
 
     if (strncmp(request, "status", 6) == 0) {
         wdctl_status(fd);
@@ -326,12 +325,12 @@ thread_wdctl_handler(void *arg)
 
 	//<<< liudf added end
     } else {
-        debug(LOG_ERR, "Request was not understood!");
+        debug(LOG_ERR, "接收到无效的命令，命令：%s",request);
     }
 
     shutdown(fd, 2);
     close(fd);
-    debug(LOG_DEBUG, "Exiting thread_wdctl_handler....");
+    debug(LOG_DEBUG, "退出 wdctl 处理线程。");
 
     return NULL;
 }
@@ -346,7 +345,7 @@ write_to_socket(int fd, char *text, size_t len)
     while (written < len) {
         retval = write(fd, (text + written), len - written);
         if (retval == -1) {
-            debug(LOG_CRIT, "Failed to write client data to child: %s", strerror(errno));
+            debug(LOG_CRIT, "无法将客户端数据写入子进程。错误号：%d，原因：%s", errno,strerror(errno));
             return 0;
         } else {
             written += retval;
@@ -576,7 +575,7 @@ wdctl_show_trusted_pan_domains(int fd)
 
 char *show_trusted_iplist()
 {
-    return mqtt_get_trusted_iplist_text();
+    return NULL;
 }
 
 void add_trusted_iplist(const char *arg)
@@ -602,7 +601,7 @@ wdctl_add_trusted_iplist(int fd, const char *arg)
 
 void del_trusted_iplist(const char *arg)
 {
-    del_trusted_ip_list(arg);
+    add_trusted_ip_list(arg);
     fw_refresh_user_domains_trusted();  
 }
 

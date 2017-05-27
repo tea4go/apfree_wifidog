@@ -14,7 +14,7 @@
 #include "debug.h"
 
 void die_most_horribly_from_openssl_error (const char *func) { 
-	debug (LOG_ERR,  "%s failed:\n", func);
+	debug(LOG_ERR,  "执行%s函数失败，进程将退出。", func);
 	exit (EXIT_FAILURE);
 }
 
@@ -45,7 +45,7 @@ void common_setup (void)
 	SSL_load_error_strings ();
 	OpenSSL_add_all_algorithms ();
 
-	debug (LOG_DEBUG, "Using OpenSSL version \"%s\"\nand libevent version \"%s\"\n",
+	debug (LOG_DEBUG, "Using OpenSSL version '%s' and libevent version '%s' ",
 		  SSLeay_version (SSLEAY_VERSION),
 		  event_get_version ());
 }

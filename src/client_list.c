@@ -178,7 +178,7 @@ client_list_add(const char *ip, const char *mac, const char *token)
 
     client_list_insert_client(curclient);
 
-    debug(LOG_INFO, "Added a new client to linked list: IP: %s Token: %s", ip, token);
+    debug(LOG_INFO, "client_list_add() : 新增终端 %s(%s) 令牌：%s", curclient->ip, curclient->mac,curclient->token);
 
     return curclient;
 }
@@ -197,12 +197,12 @@ offline_client_list_add(const char *ip, const char *mac)
 	curclient->last_login 	= time(NULL);
 	curclient->first_login 	= time(NULL);
 	curclient->client_type 	= 0;
-	curclient->hit_counts 	= 0;
+	curclient->hit_counts 	= 1;
 	curclient->temp_passed 	= 0;
 
 	offline_client_list_insert_client(curclient);
 	
-    debug(LOG_INFO, "Added a new offline client to linked list: IP: %s Mac: %s", ip, mac);
+    debug(LOG_INFO, "增加新离线终端-%s(%s)", ip, mac);
 	return curclient;
 }
 
@@ -356,6 +356,7 @@ client_list_find_by_mac(const char *mac)
 
     ptr = firstclient;
     while (NULL != ptr) {
+		debug(LOG_DEBUG, "client_list_find_by_mac() : IP=%s(%s),Token=%s",ptr->ip,ptr->mac,ptr->token);
         if (0 == strcmp(ptr->mac, mac))
             return ptr;
         ptr = ptr->next;
@@ -485,7 +486,6 @@ offline_client_ageout()
 	time_t cur_time = time(NULL);
 	int number = 0;
 	
-	debug(LOG_DEBUG, "offline_client_ageout !");
 	LOCK_OFFLINE_CLIENT_LIST();	
 	ptr = first_offline_client;
 	while(NULL != ptr) {
@@ -501,6 +501,8 @@ offline_client_ageout()
 		}
 	}
 	UNLOCK_OFFLINE_CLIENT_LIST();
+
+	debug(LOG_DEBUG, "在线终端数：%d，离线终端数：%d",g_online_clients,number);
 	return number;
 }
 
@@ -563,7 +565,7 @@ client_list_remove(t_client * client)
     ptr = firstclient;
 
     if (ptr == NULL) {
-        debug(LOG_ERR, "Node list empty!");
+        debug(LOG_ERR, "没有终端连接，不需要删除。");
     } else if (ptr == client) {
         firstclient = ptr->next;
     } else {
@@ -573,7 +575,7 @@ client_list_remove(t_client * client)
         }
         /* If we reach the end before finding out element, complain. */
         if (ptr->next == NULL) {
-            debug(LOG_ERR, "Node to delete could not be found.");
+            debug(LOG_ERR, "无法找到要删除的终端连接。");
         } else {
             ptr->next = client->next;
         }
@@ -593,12 +595,6 @@ reset_client_list()
     }
 }
 
-/*
- * Function: add_online_client
- * Returns:
- *   0 - success
- *   1 - failed
- */
 int 
 add_online_client(const char *info)
 {
@@ -610,68 +606,34 @@ add_online_client(const char *info)
 	t_client *old_client = NULL;	
 
 	if(info == NULL)
-		return 1;
+		return -1;
 	
 	client_info = json_tokener_parse(info);
-	if(is_error(client_info) || json_object_get_type(client_info) != json_type_object){
-        return 1;
-    }
-
-    int ret = 1;
-	json_object *mac_jo = NULL;
-    json_object *ip_jo = NULL;
-    json_object *name_jo = NULL;
-    if (!json_object_object_get_ex(client_info, "mac", &mac_jo)) {
-        goto OUT;
-    }
-    if (!json_object_object_get_ex(client_info, "ip", &ip_jo)) {
-        goto OUT;
-    }
-    if (!json_object_object_get_ex(client_info, "name", &name_jo)) {
-        goto OUT;
-    }
-
-    int roam_client_need_free = json_object_object_get_ex(client_info, "client", &roam_client)?0:1;
-
-	mac 	= json_object_get_string(mac_jo);
-	ip		= json_object_get_string(ip_jo);
-	name	= json_object_get_string(name_jo);
-
-	if(is_valid_mac(mac) &&  
-        is_valid_ip(ip) && 
-        !is_trusted_mac(mac) &&
-        !is_untrusted_mac(mac) && 
-        (roam_client != NULL || (roam_client = auth_server_roam_request(mac)) != NULL)) {
-
+	if(client_info == NULL)	
+		return 1;
+	
+	mac 	= json_object_get_string(json_object_object_get(client_info, "mac"));
+	ip		= json_object_get_string(json_object_object_get(client_info, "ip"));
+	name	= json_object_get_string(json_object_object_get(client_info, "name"));
+	roam_client	= json_object_object_get(client_info, "client");
+	if(mac && is_valid_mac(mac) && ip && is_valid_ip(ip) && !is_trusted_mac(mac) && !is_untrusted_mac(mac) && 
+	  (roam_client != NULL || (roam_client = auth_server_roam_request(mac)) != NULL)) {
 		LOCK_CLIENT_LIST();
+
 		old_client = client_list_find_by_mac(mac);
 		if(old_client == NULL) {
-            json_object *token_jo = NULL;
-            if (!json_object_object_get_ex(roam_client, "token", &token_jo)) {
-                UNLOCK_CLIENT_LIST();
-                goto OUT;
-            }
-			char *token = json_object_get_string(token_jo);
-
-            json_object *first_login_jo = NULL;
-            if (!json_object_object_get_ex(roam_client, "first_login", &first_login_jo)) {
-                UNLOCK_CLIENT_LIST();
-                goto OUT;
-            }
-			char *first_login = json_object_get_string(first_login_jo);
-
+			char *token = json_object_get_string(json_object_object_get(roam_client, "token"));
+			char *first_login = json_object_get_string(json_object_object_get(roam_client, "first_login"));
 			if(token != NULL) {
 				t_client *client = client_list_add(ip, mac, token);
 				client->wired = 0;
-				if (name) {
+				if (name)
 					client->name = safe_strdup(name);
-                }
 
-				if (first_login) {
+				if (first_login) 
 					client->first_login = (time_t)atol(first_login);
-                } else {
+				else
 					client->first_login = time(NULL);
-                }
 				fw_allow(client, FW_MARK_KNOWN);
 			}
 		} else if (strcmp(old_client->ip, ip) != 0) { // has login; but ip changed
@@ -682,15 +644,13 @@ add_online_client(const char *info)
 		}
 
 		UNLOCK_CLIENT_LIST();
-        ret = 0;
+
+		if(roam_client != NULL)
+			json_object_put(roam_client);
 	}
 
-OUT:
-    if(!is_error(roam_client) && roam_client_need_free){
-        json_object_put(roam_client);
-    }
-    json_object_put(client_info);
-	return ret;	
+	json_object_put(client_info);
+	return 0;	
 }
 
 char *

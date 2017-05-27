@@ -81,10 +81,10 @@ extern "C" {
 
 #define HTTP_METHOD_ERROR "\n<B>ERROR : Method Not Implemented</B>\n\n"
 
-#define httpdRequestMethod(s) 		s->request.method
-#define httpdRequestPath(s)		s->request.path
-#define httpdRequestContentType(s)	s->request.contentType
-#define httpdRequestContentLength(s)	s->request.contentLength
+#define httpdRequestMethod(s) 		     s->request.method
+#define httpdRequestPath(s)		         s->request.path
+#define httpdRequestContentType(s)	     s->request.contentType
+#define httpdRequestContentLength(s)	 s->request.contentLength
 
 #define HTTP_ACL_PERMIT		1
 #define HTTP_ACL_DENY		2

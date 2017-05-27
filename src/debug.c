@@ -31,11 +31,12 @@
 #include <time.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include "debug.h"
 
 debugconf_t debugconf = {
-    .debuglevel = LOG_INFO,
+    .debuglevel = LOG_DEBUG,
     .log_stderr = 1,
     .log_syslog = 0,
     .syslog_facility = 0
@@ -47,28 +48,34 @@ void
 _debug(const char *filename, int line, int level, const char *format, ...)
 {
     char buf[28];
+    char fbuf[128];
+    char out_buf[4096];
+    static unsigned long long GID = 1;
+
     va_list vlist;
     time_t ts;
+    struct tm *my_tm;
     sigset_t block_chld;
 
-    time(&ts);
-    
     if (debugconf.debuglevel >= level) {
         sigemptyset(&block_chld);
         sigaddset(&block_chld, SIGCHLD);
         sigprocmask(SIG_BLOCK, &block_chld, NULL);
 
+        time(&ts);
+        my_tm = localtime(&ts);
+        sprintf(buf, "%02d:%02d:%02d",my_tm->tm_hour, my_tm->tm_min, my_tm->tm_sec);
+        snprintf(fbuf,sizeof(fbuf),"(%s:%d)",filename, line);
+
         if (level <= LOG_WARNING) {          
-            fprintf(stderr, "[%d][%.24s][%u](%s:%d) ", level, ctime_r(&ts, buf), getpid(),
-                filename, line);
+            fprintf(stderr, "[%d]> ", level);
             va_start(vlist, format);
             vfprintf(stderr, format, vlist);
             va_end(vlist);
             fputc('\n', stderr); 
             fflush(stderr);
         } else if (debugconf.log_stderr) {
-            fprintf(stderr, "[%d][%.24s][%u](%s:%d) ", level, ctime_r(&ts, buf), getpid(),
-                filename, line);
+            fprintf(stderr,  "[%d]> ", level);
             va_start(vlist, format);
             vfprintf(stderr, format, vlist);
             va_end(vlist);
@@ -76,12 +83,36 @@ _debug(const char *filename, int line, int level, const char *format, ...)
             fflush(stderr);
         }
 
-        if (debugconf.log_syslog) {
-            openlog("wifidog", LOG_PID, debugconf.syslog_facility);
+        if (debugconf.log_syslog) 
+        {
+            int ilen = snprintf(out_buf,sizeof(out_buf),"%d|%s|%d|%llu|>",pthread_self(),filename, line, GID);
+            ilen = (ilen>sizeof(out_buf)?sizeof(out_buf):ilen);
+            
+            openlog("wifidog",LOG_PID, debugconf.syslog_facility);
+            
             va_start(vlist, format);
-            vsyslog(level, format, vlist);
+            ilen = ilen + vsnprintf(out_buf+ilen, sizeof(out_buf)-ilen, format, vlist); 
+            //vsyslog(level, format, vlist);
             va_end(vlist);
+
+            int i=0;
+            while (i<=ilen)
+            {
+                if( *(out_buf+i)=='\r' )
+                {
+                    *(out_buf+i)='~';
+                } else if( *(out_buf+i)=='\n' )
+                {
+                    *(out_buf+i)='~';
+                }
+                i++;
+            }            
+            
+            syslog(level,"%s",out_buf);
             closelog();
+
+            //printf("%s\n",out_buf);
+            GID++;
         }
         
         sigprocmask(SIG_UNBLOCK, &block_chld, NULL);

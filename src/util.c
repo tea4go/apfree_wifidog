@@ -73,7 +73,7 @@ init_icmp_socket(void)
 {
     int flags, oneopt = 1, zeroopt = 0;
 
-    debug(LOG_INFO, "Creating ICMP socket");
+    debug(LOG_DEBUG, "Creating ICMP socket");
     if ((icmp_fd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) == -1 ||
         (flags = fcntl(icmp_fd, F_GETFL, 0)) == -1 ||
         fcntl(icmp_fd, F_SETFL, flags | O_NONBLOCK) == -1 ||
@@ -89,7 +89,7 @@ init_icmp_socket(void)
 void
 close_icmp_socket(void)
 {
-    debug(LOG_INFO, "Closing ICMP socket");
+    debug(LOG_DEBUG, "Closing ICMP socket");
     close(icmp_fd);
 }
 
@@ -129,21 +129,22 @@ icmp_ping(const char *host)
     packet.icmp.icmp_cksum = (j == 0xffff) ? j : ~j;
 
     if (setsockopt(icmp_fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == -1)
-        debug(LOG_ERR, "setsockopt(): %s", strerror(errno));
+        debug(LOG_ERR, "icmp_ping() : setsockopt(): %s", strerror(errno));
 
     if (sendto(icmp_fd, (char *)&packet.icmp, sizeof(struct icmp), 0,
                (const struct sockaddr *)&saddr, sizeof(saddr)) == -1)
-        debug(LOG_ERR, "sendto(): %s", strerror(errno));
+        debug(LOG_ERR, "icmp_ping() : sendto(): %s", strerror(errno));
 
     opt = 1;
     if (setsockopt(icmp_fd, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) == -1)
-        debug(LOG_ERR, "setsockopt(): %s", strerror(errno));
+        debug(LOG_ERR, "icmp_ping() : setsockopt(): %s", strerror(errno));
 
     return;
 }
 
 /** Get a 16-bit unsigned random number.
  * @return unsigned short a random number
+ * 获取16位无符号随机数。
  */
 static unsigned short
 rand16(void)
@@ -196,23 +197,16 @@ save_pid_file(const char *pf)
 int
 is_valid_ip(const char *ip)
 {
-	if (!ip) {
-		return 0;
-	}
 	struct sockaddr_in sa;
     int result = inet_pton(AF_INET, ip, &(sa.sin_addr));
     return result != 0;
 }
 
-// true: 1; false: 0
 int 
 is_valid_mac(const char *mac)
 {
 	int i = 0;
 	int s = 0;
-
-	if (!mac || strlen(mac) != 17)
-		return 0;
 
 	while (*mac) {
 		if (isxdigit(*mac)) {
@@ -237,13 +231,16 @@ int is_socket_valid(int sockfd)
 {
 	int err = 0;
 	int errlen = sizeof(err);
+
+    //SO_ERROR    int     获取错误状态并清除。
+	//当函数成功时返回0。当发生错误时会返回-1，而错误原因会存放在外部变量errno中。
 	if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &err, &errlen) == -1) {
-		debug(LOG_INFO, "getsockopt(SO_ERROR): %s", strerror(errno));
+		debug(LOG_INFO, "is_socket_valid() : 网络连接有错误。错误码：%d，原因：%s", errno,strerror(errno));
 		return 0;
 	}
 
 	if (err) {
-		debug(LOG_INFO, "getsockopt(SO_ERROR): %s", strerror(errno));
+		debug(LOG_INFO, "is_socket_valid() : 网络连接有错误。错误码：%d，原因：%s", errno,strerror(errno));
 		return 0;
 	}
 
@@ -310,8 +307,8 @@ read_cpu_fields (FILE *fp, unsigned long long int *fields)
 	if (!fgets (buffer, BUF_MAX, fp)) { 
 	 return 0;
 	}
-
-	retval = sscanf (buffer, "cpu %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu %Lu", 
+  	debug (LOG_DEBUG, "/proc/stat = %s",buffer);
+	retval = sscanf (buffer, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu", 
 							&fields[0], 
 							&fields[1], 
 							&fields[2], 
@@ -335,13 +332,12 @@ get_cpu_usage()
 	FILE *fp;
 	unsigned long long int fields[10], total_tick, total_tick_old, idle, idle_old, del_total_tick, del_idle;
 	int i;
-	float percent_usage;
+	double percent_usage;
 
 	fp = fopen ("/proc/stat", "r");
 	if (fp == NULL) {
 		return 0.f;	
 	}
-
 
 	if (!read_cpu_fields (fp, fields)) { 
 		fclose (fp);
@@ -353,10 +349,10 @@ get_cpu_usage()
 	}
 	idle = fields[3]; /* idle ticks index */
 
-	s_sleep(1, 0);
 	total_tick_old = total_tick;
 	idle_old = idle;
 
+	s_sleep(1, 0);
 	fseek (fp, 0, SEEK_SET);
 	fflush (fp);
 	if (!read_cpu_fields (fp, fields)){ 
@@ -365,6 +361,7 @@ get_cpu_usage()
 	}
 
 	for (i=0, total_tick = 0; i<10; i++) { 
+//    	debug (LOG_DEBUG, "Total CPU Usage %d = %llu , %llu", i, total_tick,fields[i]);
 		total_tick += fields[i]; 
 	}
 	idle = fields[3];
@@ -373,8 +370,10 @@ get_cpu_usage()
 	del_idle = idle - idle_old;
 
 	percent_usage = ((del_total_tick - del_idle) / (float) del_total_tick) * 100; /* 3 is index of idle time */
-	debug (LOG_DEBUG, "Total CPU Usage: %3.2lf%%\n", percent_usage);
-
+	if (del_total_tick>0)
+  	  debug (LOG_DEBUG, "CPU使用率：%3.2lf%%", percent_usage);
+    else
+  	  debug (LOG_DEBUG, "CPU使用情况，总数：(%ld-%ld), 空闲：(%ld-%ld)", total_tick_old,total_tick,idle_old,idle);
 	fclose (fp); 
 
 	return percent_usage;
@@ -389,4 +388,33 @@ s_sleep(unsigned int s, unsigned int u){
 	timeout.tv_usec = u;
 
 	select(0, NULL, NULL, NULL, &timeout);
+}
+
+void gettimestr(time_t ts,char *str_text,int len)
+{
+    struct tm *my_tm;
+    my_tm = localtime(&ts);
+    snprintf(str_text, len, "%d-%02d-%02d %02d:%02d:%02d",1900 + my_tm->tm_year, 1 + my_tm->tm_mon, my_tm->tm_mday,my_tm->tm_hour, my_tm->tm_min, my_tm->tm_sec);
+}
+
+void trim(char* s, char c)
+{
+    char *t=s;
+    while (*s == c){
+		s++;
+	}
+    while (*s && *s != c){
+		*t=*s;
+		s++;
+		t++;
+	}
+	*t=0;
+}
+
+char * gettimeofdaystr(char *out_text,size_t out_len)
+{
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    snprintf(out_text,out_len,"%ld%ld",tv.tv_sec,tv.tv_usec);
+	return out_text;
 }

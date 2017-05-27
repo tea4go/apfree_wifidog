@@ -119,28 +119,28 @@ _special_process(request *r, const char *mac, const char *redir_url)
 			interval = o_client->last_login - o_client->first_login;
 		}
 
-		debug(LOG_DEBUG, "Into captive.apple.com hit_counts %d interval %d http version %d\n", 
+		debug(LOG_DEBUG, "Into captive.apple.com hit_counts %d interval %d http version %d",
 				o_client->hit_counts, interval, r->request.version);
-    	
+
 		o_client->hit_counts++;
 
 		if(o_client->client_type == 1 ) {
     		UNLOCK_OFFLINE_CLIENT_LIST();
 			if(interval > 20 && r->request.version == HTTP_1_0) {
-				fw_set_mac_temporary(mac, 0);	
+				fw_set_mac_temporary(mac, 0);
 				http_send_apple_redirect(r, redir_url);
 			} else if(o_client->hit_counts > 2 && r->request.version == HTTP_1_0)
 				http_send_apple_redirect(r, redir_url);
 			else {
-				http_send_redirect(r, redir_url, "Redirect to login page");
+				http_send_redirect(r, redir_url, "重定向到登录页面");
 			}
-		} else {	
+		} else {
 			o_client->client_type = 1;
 			UNLOCK_OFFLINE_CLIENT_LIST();
 			http_relay_wisper(r);
 		}
 		return 1;
-	} 
+	}
 
 	return 0;
 }
@@ -149,43 +149,64 @@ _special_process(request *r, const char *mac, const char *redir_url)
 /** The 404 handler is also responsible for redirecting to the auth server */
 void
 http_callback_404(httpd * webserver, request * r, int error_code)
-{  	
-    if (!is_online()) {
+{
+	char tmp_url[MAX_BUF] = {0};
+	snprintf(tmp_url, (sizeof(tmp_url) - 1), "http://%s%s%s%s",
+         r->request.host, r->request.path, r->request.query[0] ? "?" : "", r->request.query);
+	if ( strstr(tmp_url,"wowenda") ||
+		 strstr(tmp_url,"duba") ||
+		 strstr(tmp_url,"kcs") ||
+		 strstr(tmp_url,"kns") ||
+		 strstr(tmp_url,"firefox") ||
+		 strstr(tmp_url,"wps") ||
+		 strstr(tmp_url,"qq") ||
+		 strstr(tmp_url,"pc120") ||
+		 strstr(tmp_url,"symcd") ||
+		 strstr(tmp_url,"query3") ||		
+		 strstr(tmp_url,"microsoft") ||			
+		 strstr(tmp_url,"180.163.25.38") ||	
+		 strstr(tmp_url,"114.112.67.221") ||	
+		 strstr(tmp_url,"120.92.32.253") ||	
+		 strstr(tmp_url,"112.90.139.96") ||			
+		 strstr(tmp_url,"suggestion.baidu.com") ||			
+ 		 strstr(tmp_url,"ijinshan") ) {
+		//printf("无效的网页访问，%s\n",tmp_url);
+		return;
+	}
+
+	if (!is_online()) {
+        debug(LOG_DEBUG, "http_callback_404() : 网关服务器不在线，返回不在线页面。捕获 %s 请求 [%s]", r?r->clientAddr:"空",tmp_url);
 		char *msg = evb_2_string(evb_internet_offline_page, NULL);
         send_http_page_direct(r, msg);
 		free(msg);
-        debug(LOG_DEBUG, "Sent %s an apology since I am not online - no point sending them to auth server",
-              r->clientAddr);
     } else if (!is_auth_online()) {
+        debug(LOG_DEBUG, "http_callback_404() : Auth服务器不在线，返回不在线页面。捕获 %s 请求 [%s]", r?r->clientAddr:"空",tmp_url);
 		char *msg = evb_2_string(evb_authserver_offline_page, NULL);
         send_http_page_direct(r, msg);
 		free(msg);
-        debug(LOG_DEBUG, "Sent %s an apology since auth server not online - no point sending them to auth server",
-              r->clientAddr);
     } else {
 		/* Re-direct them to auth server */
 		const s_config *config = config_get_config();
-		char tmp_url[MAX_BUF] = {0};
         char  mac[18] = {0};
         int nret = br_arp_get_mac(r->clientAddr, mac);  
 		if (nret == 0) {
             strncpy(mac, "ff:ff:ff:ff:ff:ff", 17);
         }
-		
-		snprintf(tmp_url, (sizeof(tmp_url) - 1), "http://%s%s%s%s",
-             r->request.host, r->request.path, r->request.query[0] ? "?" : "", r->request.query);
-		
+  	    
     	char *url = httpdUrlEncode(tmp_url);	
 		char *redir_url = evhttpd_get_full_redir_url(mac, r->clientAddr, url);
-        if (nret) {  // if get mac success              
+  	    debug (LOG_INFO, "http_callback_404() : 捕获 %s 请求 [%s]==>[%s]", r->clientAddr, tmp_url,redir_url);
+
+		if (nret) {  // if get mac success              
 			t_client *clt = NULL;
-            debug(LOG_DEBUG, "Got client MAC address for ip %s: %s", r->clientAddr, mac);	
-			
+            //debug(LOG_DEBUG, "http_callback_404() : 通过IP获得Mac地址：%s(%s)", r->clientAddr, mac);
+
 			//>>> liudf 20160106 added
 			if(_special_process(r, mac, redir_url)) {
+                debug(LOG_DEBUG, "http_callback_404() : 执行物理处理(special_process)");
             	goto end_process;
 			}
-			
+
 			// if device has login; but after long time reconnected router, its ip changed
 			LOCK_CLIENT_LIST();
 			clt = client_list_find_by_mac(mac);
@@ -195,37 +216,40 @@ http_callback_404(httpd * webserver, request * r, int error_code)
 				clt->ip = safe_strdup(r->clientAddr);
 				fw_allow(clt, FW_MARK_KNOWN);
 				UNLOCK_CLIENT_LIST();
-                debug(LOG_INFO, "client has login, replace it with new ip");
-				http_send_redirect(r, tmp_url, "device has login");
+                debug(LOG_DEBUG, "http_callback_404() : 终端已经登录，用新的IP替换它。");
+				http_send_redirect(r, tmp_url, "终端已经登录。");
             	goto end_process;
 			}
 			UNLOCK_CLIENT_LIST();
 
             if (config->wired_passed && br_is_device_wired(mac)) {
-                debug(LOG_DEBUG, "wired_passed: add %s to trusted mac", mac);
+                debug(LOG_DEBUG, "http_callback_404() : 有线终端(%s)增加到白名单。", mac);
                 if (!is_trusted_mac(mac))
                     add_trusted_maclist(mac);
-                http_send_redirect(r, tmp_url, "device was wired");
+                http_send_redirect(r, tmp_url, "终端是有线接入。");
                 goto end_process;
             }
         }
-		
-        debug(LOG_DEBUG, "Captured %s requesting [%s] and re-directing them to login page", r->clientAddr, tmp_url);
+
 		if(config->js_filter)
+			//通过定时器自动转向登录网页。
 			http_send_js_redirect(r, redir_url);
 		else
-			http_send_redirect(r, redir_url, "Redirect to login page");
-		
+			//通过手动点击转向登录网页。
+			http_send_redirect(r, redir_url, "重定向到登录页面");
+
 end_process:
 		if (redir_url) free(redir_url);
 		if (url) free(url);
     }
+
+//	debug(LOG_DEBUG, "http_callback_404() : end");
 }
 
 void
 http_callback_wifidog(httpd * webserver, request * r)
 {
-    send_http_page(r, "WiFiDog", "Please use the menu to navigate the features of this WiFiDog installation.");
+    send_http_page(r, "WiFiDog", "请使用菜单浏览此WiFiDog安装的功能。");
 }
 
 void
@@ -244,14 +268,14 @@ http_callback_status(httpd * webserver, request * r)
     if (config->httpdusername &&
         (strcmp(config->httpdusername, r->request.authUser) ||
          strcmp(config->httpdpassword, r->request.authPassword))) {
-        debug(LOG_INFO, "Status page requested, forcing authentication");
+        debug(LOG_INFO, "请求状态页，强制认证。");
         httpdForceAuthenticate(r, config->httpdrealm);
         return;
     }
 
     status = get_status_text();
     safe_asprintf(&buf, "<pre>%s</pre>", status);
-    send_http_page(r, "WiFiDog Status", buf);
+    send_http_page(r, "WiFi防火墙状态", buf);
     free(buf);
     free(status);
 }
@@ -282,27 +306,29 @@ http_send_redirect_to_auth(request * r, const char *urlFragment, const char *tex
     free(url);
 }
 
-/** @brief Sends a redirect to the web browser 
+/** @brief Sends a redirect to the web browser
  * @param r The request
- * @param url The url to redirect to
- * @param text The text to include in the redirect header and the manual redirect link title.  NULL is acceptable */
+ * @param redir_url The redir_url to redirect to
+ * @param text The text to include in the redirect header and the manual redirect link title.  NULL is acceptable 
+ * 通过手动点击转向登录网页。
+ */
 void
-http_send_redirect(request * r, const char *url, const char *text)
+http_send_redirect(request * r, const char *redir_url, const char *text)
 {
     char *message = NULL;
     char *header = NULL;
     char *response = NULL;
     /* Re-direct them to auth server */
-    debug(LOG_DEBUG, "Redirecting client browser to %s", url);
-    safe_asprintf(&header, "Location: %s", url);
+    debug(LOG_DEBUG, "将终端浏览器(手动)重定向到Auth服务器：%s", redir_url);
+    safe_asprintf(&header, "Location: %s", redir_url);
 	// liudf 20160104; change 302 to 307
-    safe_asprintf(&response, "307 %s\r\n", text ? text : "Redirecting");
+    safe_asprintf(&response, "307 %s\r\n", text ? text : "重定向");
     httpdSetResponse(r, response);
     httpdAddHeader(r, header);
     free(response);
     free(header);
 
-    safe_asprintf(&message, "<html><body>Please <a href='%s'>click here</a>.</body></html>", url);
+    safe_asprintf(&message, "<html><body>请<a href='%s'>点击这里</a>。</body></html>", redir_url);
     httpdOutputDirect(r, message);
 	_httpd_closeSocket(r);
     free(message);
@@ -311,45 +337,67 @@ http_send_redirect(request * r, const char *url, const char *text)
 void
 http_callback_auth(httpd * webserver, request * r)
 {
+	char tmp_url[MAX_BUF] = {0};
+	snprintf(tmp_url, (sizeof(tmp_url) - 1), "http://%s%s%s%s",
+             r->request.host, r->request.path, r->request.query[0] ? "?" : "", r->request.query);
+    
+	debug(LOG_INFO, "http_callback_auth() : 终端 %s 访问网关服务器。地址：%s", r->clientAddr,tmp_url);
     t_client *client;
     httpVar *token;
     char *mac;
-    httpVar *logout = httpdGetVariableByName(r, "logout");
+    httpVar *logout;
 
-    if ((token = httpdGetVariableByName(r, "token"))) {
+    logout = httpdGetVariableByName(r, "logout");
+    token = httpdGetVariableByName(r, "token");
+
+    if (token) {
         /* They supplied variable "token" */
         if (!(mac = arp_get(r->clientAddr))) {
             /* We could not get their MAC address */
-            debug(LOG_ERR, "Failed to retrieve MAC address for ip %s", r->clientAddr);
-            send_http_page(r, "WiFiDog Error", "Failed to retrieve your MAC address");
+            debug(LOG_ERR, "http_callback_auth() : 找不到(%s)对应的Mac地址。", r->clientAddr);
+            send_http_page(r, "错误", "找不到对应的Mac地址。");
         } else {
             /* We have their MAC address */
             LOCK_CLIENT_LIST();
+			client = client_list_find(r->clientAddr, mac);
 
-            if ((client = client_list_find(r->clientAddr, mac)) == NULL) {
-                debug(LOG_DEBUG, "New client for %s", r->clientAddr);
-                client_list_add(r->clientAddr, mac, token->value);
-            } else if (logout) {
-                logout_client(client);
-            } else {
-                debug(LOG_DEBUG, "Client for %s is already in the client list", client->ip);
-            }
+            if (logout != NULL) {
+                if (client != NULL) {
+  				    debug(LOG_NOTICE, "http_callback_auth() : 注销终端 %s(%s)", r->clientAddr,mac);
+					logout_client(client);
+				} else {
+					debug(LOG_INFO, "http_callback_auth() : 终端 %s(%s) 已经注销过", r->clientAddr,mac);
+				}				
+                UNLOCK_CLIENT_LIST();
 
-            UNLOCK_CLIENT_LIST();
-            if (!logout) { /* applies for case 1 and 3 from above if */
-                authenticate_client(r);
-            }
+				send_http_page(r, "提示", "终端注销成功。");
+			}else {
+				if (client == NULL) {
+					debug(LOG_NOTICE, "http_callback_auth() : 新建终端 %s(%s)", r->clientAddr,mac);
+					client_list_add(r->clientAddr, mac, token->value);
+				} else {
+					debug(LOG_DEBUG, "http_callback_auth() : 终端 %s(%s) 已经在终端列表中", r->clientAddr,mac);
+				}
+                UNLOCK_CLIENT_LIST();
+
+ 			    debug(LOG_DEBUG, "http_callback_auth() : 终端 %s(%s) 请求Auth服务器验证返回码(/wifidog/auth)。", r->clientAddr,mac);
+				authenticate_client(r);
+			}
+
             free(mac);
         }
     } else {
         /* They did not supply variable "token" */
-        send_http_page(r, "WiFiDog error", "Invalid token");
+        send_http_page(r, "错误", "没有找到token字段。");
     }
+	debug(LOG_DEBUG, "http_callback_auth() : end");
 }
 
+//增加逻辑 LiuQiQuan (主动注销登录未完成)
 void
 http_callback_disconnect(httpd * webserver, request * r)
 {
+	debug(LOG_DEBUG, "http_callback_disconnect()");
     const s_config *config = config_get_config();
     /* XXX How do you change the status code for the response?? */
     httpVar *token = httpdGetVariableByName(r, "token");
@@ -358,7 +406,7 @@ http_callback_disconnect(httpd * webserver, request * r)
     if (config->httpdusername &&
         (strcmp(config->httpdusername, r->request.authUser) ||
          strcmp(config->httpdpassword, r->request.authPassword))) {
-        debug(LOG_INFO, "Disconnect requested, forcing authentication");
+        debug(LOG_INFO, "http_callback_disconnect() : Disconnect requested, forcing authentication(断开请求，强制认证)");
         httpdForceAuthenticate(r, config->httpdrealm);
         return;
     }
@@ -371,8 +419,12 @@ http_callback_disconnect(httpd * webserver, request * r)
 
         if (!client || strcmp(client->token, token->value)) {
             UNLOCK_CLIENT_LIST();
-            debug(LOG_INFO, "Disconnect %s with incorrect token %s", mac->value, token->value);
-            httpdOutput(r, "Invalid token for MAC");
+			if (client) 
+               debug(LOG_INFO, "http_callback_disconnect() : 断开 %s 连接失败，传入的token不正确。令牌：%s",mac->value,client->token);
+			else
+               debug(LOG_INFO, "http_callback_disconnect() : 断开 %s 连接失败，没找到mac地址对应的终端。",mac->value);
+            httpdOutput(r, "无效的Mac地址或Token。");
+			debug(LOG_DEBUG, "http_callback_disconnect() : end");
             return;
         }
 
@@ -381,21 +433,21 @@ http_callback_disconnect(httpd * webserver, request * r)
         UNLOCK_CLIENT_LIST();
 
     } else {
-        debug(LOG_INFO, "Disconnect called without both token and MAC given");
-        httpdOutput(r, "Both the token and MAC need to be specified");
+        debug(LOG_INFO, "断开连接需要传入mac和token字段。");
+        httpdOutput(r, "断开连接需要传入mac和token字段。");
         return;
     }
-
+	debug(LOG_DEBUG, "http_callback_disconnect() : end");
     return;
 }
 
 // liudf added 20160421
 void
 http_callback_temporary_pass(httpd * webserver, request * r)
-{	
+{
     const s_config *config = config_get_config();
     httpVar *mac = httpdGetVariableByName(r, "mac");
-	
+
 	if (config->httpdusername &&
         (strcmp(config->httpdusername, r->request.authUser) ||
          strcmp(config->httpdpassword, r->request.authPassword))) {
@@ -406,7 +458,7 @@ http_callback_temporary_pass(httpd * webserver, request * r)
 
 	if(mac) {
         debug(LOG_INFO, "Temporary passed %s", mac->value);
-		fw_set_mac_temporary(mac->value, 0);	
+		fw_set_mac_temporary(mac->value, 0);
         httpdOutput(r, "startWeChatAuth();");
 	} else {
         debug(LOG_INFO, "Temporary pass called without  MAC given");
@@ -428,12 +480,12 @@ send_http_page(request * r, const char *title, const char *message)
 
     fd = open(config->htmlmsgfile, O_RDONLY);
     if (fd == -1) {
-        debug(LOG_CRIT, "Failed to open HTML message file %s: %s", config->htmlmsgfile, strerror(errno));
+        debug(LOG_CRIT, "打开文件(%s)失败。原因：%s", config->htmlmsgfile, strerror(errno));
         return;
     }
 
     if (fstat(fd, &stat_info) == -1) {
-        debug(LOG_CRIT, "Failed to stat HTML message file: %s", strerror(errno));
+        debug(LOG_CRIT, "读取文件状态(%s)失败。原因：%s", config->htmlmsgfile, strerror(errno));
         close(fd);
         return;
     }
@@ -441,7 +493,7 @@ send_http_page(request * r, const char *title, const char *message)
     buffer = (char *)safe_malloc((size_t) stat_info.st_size + 1);
     written = read(fd, buffer, (size_t) stat_info.st_size);
     if (written == -1) {
-        debug(LOG_CRIT, "Failed to read HTML message file: %s", strerror(errno));
+        debug(LOG_CRIT, "读取文件内容(%s)失败。原因：%s", config->htmlmsgfile, strerror(errno));
         free(buffer);
         close(fd);
         return;
@@ -452,42 +504,47 @@ send_http_page(request * r, const char *title, const char *message)
     httpdAddVariable(r, "title", title);
     httpdAddVariable(r, "message", message);
     httpdAddVariable(r, "nodeID", config->gw_id);
+
+    debug(LOG_DEBUG, "send_http_page() : 返回给终端 %s 页面，内容：<%s>%s", r->clientAddr,title,message);
     httpdOutput(r, buffer);
     free(buffer);
 }
 
 //>>> liudf added 20160104
+//通过定时器自动转向登录网页。
 void
 http_send_js_redirect(request *r, const char *redir_url)
 {
-	struct evbuffer *evb = evbuffer_new ();	
+    debug(LOG_DEBUG, "将终端浏览器(自动)重定向到Auth服务器：%s", redir_url);
+	struct evbuffer *evb = evbuffer_new ();
 	struct evbuffer *evb_redir_url = evbuffer_new();
-	
+
 	evbuffer_add(evb, wifidog_redir_html->front, wifidog_redir_html->front_len);
-	evbuffer_add_printf(evb_redir_url, WIFIDOG_REDIR_HTML_CONTENT, redir_url);
+	evbuffer_add_printf(evb_redir_url, WIFIDOG_REDIR_HTML_CONTENT, redir_url,10);
 	evbuffer_add_buffer(evb, evb_redir_url);
 	evbuffer_add(evb, wifidog_redir_html->rear, wifidog_redir_html->rear_len);
-	
+
 	int html_length = 0;
 	char *redirect_html = evb_2_string(evb, &html_length);
-	
+
 #ifdef	_DEFLATE_SUPPORT_
 	if (r->request.deflate) {
 		char *deflate_html = NULL;
 		int wlen = 0;
-		
+
 		if (deflate_write(redirect_html, html_length, &deflate_html, &wlen, 1) == Z_OK) {
-			httpdOutputLengthDirect(r, deflate_html, wlen);				
+			debug(LOG_DEBUG, "使用Deflate压缩网页。");
+			httpdOutputLengthDirect(r, deflate_html, wlen);
 		} else
-			debug(LOG_INFO, "deflate_write failed");
-		
+			debug(LOG_INFO, "使用Deflate压缩网页失败。");
+
 		if (deflate_html) free(deflate_html);
 	} else
 #endif
 		httpdOutputLengthDirect(r, redirect_html, html_length);
-	
+
 	_httpd_closeSocket(r);
-	
+
 	free(redirect_html);
 	evbuffer_free(evb);
 	evbuffer_free(evb_redir_url);
@@ -507,8 +564,9 @@ http_relay_wisper(request *r)
 	_httpd_closeSocket(r);
 }
 
-void send_http_page_direct(request *r,  char *msg) 
+void send_http_page_direct(request *r,  char *msg)
 {
+    debug(LOG_DEBUG, "send_http_page_direct() : 返回给终端 %s 页面", r?r->clientAddr:"空");    
 	httpdOutputDirect(r, msg);
 	_httpd_closeSocket(r);
 }

@@ -55,4 +55,10 @@ float get_cpu_usage();
 
 void s_sleep(unsigned int, unsigned int);
 
+void gettimestr(time_t ts,char *str_text,int len);
+
+void trim(char* s, char c);
+
+char * gettimeofdaystr(char *out_text,size_t out_len);
+
 #endif                          /* _UTIL_H_ */

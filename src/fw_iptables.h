@@ -33,27 +33,29 @@
 
 /*@{*/
 /**Iptable chain names used by WifiDog */
-#define CHAIN_OUTGOING  "WiFiDog_$ID$_Outgoing"
-#define CHAIN_TO_INTERNET "WiFiDog_$ID$_Internet"
-#define CHAIN_TO_ROUTER "WiFiDog_$ID$_Router"
-#define CHAIN_INCOMING  "WiFiDog_$ID$_Incoming"
-#define CHAIN_AUTHSERVERS "WiFiDog_$ID$_AuthServers"
+#define CHAIN_OUTGOING				"WiFiDog_$ID$_Outgoing"
+#define CHAIN_TO_INTERNET			"WiFiDog_$ID$_Internet"
+#define CHAIN_TO_ROUTER				"WiFiDog_$ID$_Router"
+#define CHAIN_INCOMING				"WiFiDog_$ID$_Incoming"
+#define CHAIN_AUTHSERVERS			"WiFiDog_$ID$_AuthServers"
 //>>> liudf added 20151223 
-#define	DNSMASQ_CONF_D	"/tmp/dnsmasq.d"
-#define CHAIN_IPSET_TDOMAIN	"WiFiDog_IPSET_TDomains"
-#define CHAIN_DOMAIN_TRUSTED "WiFiDog_$ID$_TDomains"
-#define CHAIN_INNER_DOMAIN_TRUSTED "WiFiDog_$ID$_ITDomains"
-#define	CHAIN_ROAM			"WiFiDog_$ID$_Roam"
-#define	CHAIN_UNTRUSTED		"WiFiDog_$ID$_Untrusted"
-#define	CHAIN_TO_PASS		"WiFiDog_$ID$_Pass"
+
+#define CHAIN_IPSET_TDOMAIN         "WiFiDog_IPSET_TDomains"
+#define CHAIN_DOMAIN_TRUSTED        "WiFiDog_$ID$_TDomains"
+#define CHAIN_INNER_DOMAIN_TRUSTED  "WiFiDog_$ID$_ITDomains"
+#define CHAIN_ROAM                  "WiFiDog_$ID$_Roam"
+#define CHAIN_UNTRUSTED             "WiFiDog_$ID$_Untrusted"
+#define CHAIN_TO_PASS               "WiFiDog_$ID$_Pass"
 //<<< liudf added end
-#define CHAIN_GLOBAL  "WiFiDog_$ID$_Global"
-#define CHAIN_VALIDATE  "WiFiDog_$ID$_Validate"
-#define CHAIN_KNOWN     "WiFiDog_$ID$_Known"
-#define CHAIN_UNKNOWN   "WiFiDog_$ID$_Unknown"
-#define CHAIN_LOCKED    "WiFiDog_$ID$_Locked"
-#define CHAIN_TRUSTED    "WiFiDog_$ID$_Trusted"
-#define CHAIN_AUTH_IS_DOWN "WiFiDog_$ID$_AuthIsDown"
+#define CHAIN_GLOBAL				"WiFiDog_$ID$_Global"
+#define CHAIN_VALIDATE				"WiFiDog_$ID$_Validate"
+#define CHAIN_KNOWN					"WiFiDog_$ID$_Known"
+#define CHAIN_UNKNOWN				"WiFiDog_$ID$_Unknown"
+#define CHAIN_LOCKED				"WiFiDog_$ID$_Locked"
+#define CHAIN_TRUSTED				"WiFiDog_$ID$_Trusted"
+#define CHAIN_AUTH_IS_DOWN          "WiFiDog_$ID$_AuthIsDown"
+
+#define DNSMASQ_CONF_D              "/tmp/dnsmasq.d"
 /*@}*/
 
 /** Used by iptables_fw_access to select if the client should be granted of denied access */
@@ -67,7 +69,7 @@ typedef enum fw_access_t_ {
 int iptables_fw_init(void);
 
 /** @brief Initializes the authservers table */
-void iptables_fw_set_authservers(void *handle);
+void iptables_fw_set_authservers(void);
 
 /** @brief Clears the authservers table */
 void iptables_fw_clear_authservers(void);
@@ -76,7 +78,7 @@ void iptables_fw_clear_authservers(void);
 int iptables_fw_destroy(void);
 
 /** @brief Helper function for iptables_fw_destroy */
-int iptables_fw_destroy_mention(const char *table, const char *chain, const char *mention, void *handle);
+int iptables_fw_destroy_mention(const char *table, const char *chain, const char *mention);
 
 /** @brief Define the access of a specific client */
 int iptables_fw_access(fw_access_t type, const char *ip, const char *mac, int tag);

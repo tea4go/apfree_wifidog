@@ -253,6 +253,7 @@ void start_http_request(const char *url, int req_get_flag,
 					const char *content_type, const char* data,
 					user_process_data_cb	user_cb)
 {
+    debug(LOG_DEBUG, "start_http_request() : 执行初始化libevent库。");
 	struct event_base* base = event_base_new();
     struct http_request_get *http_req_get = http_request_new(base, url, req_get_flag, content_type, data);
 	
@@ -400,21 +401,21 @@ http_get_ex(const int sockfd, const char *req, int wait)
 
     if (sockfd == -1) {
         /* Could not connect to server */
-        debug(LOG_ERR, "Could not open socket to server!");
+        debug(LOG_ERR, "无法打打Auth服务器的Socket句柄！");
         goto error;
     }
 
-    debug(LOG_DEBUG, "Sending HTTP request to auth server: [%s]\n", req);
+    debug(LOG_DEBUG, "发送请求到Auth服务器[%s]", req);
     numbytes = send(sockfd, req, reqlen, 0);
     if (numbytes <= 0) {
-        debug(LOG_ERR, "send failed: %s", strerror(errno));
+        debug(LOG_ERR, "发送失败，错误码：%d，原因：%s", errno,strerror(errno));
         goto error;
     } else if ((size_t) numbytes != reqlen) {
-        debug(LOG_ERR, "send failed: only %d bytes out of %d bytes sent!", numbytes, reqlen);
+        debug(LOG_ERR, "发送失败，只发送了 %d 字节，共需要发送 %d 字节。", numbytes, reqlen);
         goto error;
     }
 
-    debug(LOG_DEBUG, "Reading response timeout [%d]", wait);
+    debug(LOG_DEBUG, "读取返回超时时间为 %d 秒。", wait);
     done = 0;
     do {
         FD_ZERO(&readfds);
@@ -431,30 +432,30 @@ http_get_ex(const int sockfd, const char *req, int wait)
             memset(readbuf, 0, MAX_BUF);
             numbytes = read(sockfd, readbuf, MAX_BUF - 1);
             if (numbytes < 0) {
-                debug(LOG_ERR, "An error occurred while reading from server: %s", strerror(errno));
+                debug(LOG_ERR, "从Auth服务器读取时发生错误，错误码：%d，原因：%s", errno, strerror(errno));
                 goto error;
             } else if (numbytes == 0) {
-				debug(LOG_INFO, "Server close connection: %s", strerror(errno));
+				debug(LOG_INFO, "Auth服务器关闭连接，错误码：%d，原因：%s", errno, strerror(errno));
 				close_auth_server();
                 done = 1;
             } else {
                 readbuf[numbytes] = '\0';
                 pstr_cat(response, readbuf);
-                debug(LOG_DEBUG, "Read %d bytes", numbytes);
+                debug(LOG_DEBUG, "从Auth服务器读取 %d 字节。", numbytes);
 				if(numbytes < MAX_BUF - 1)
 					done = 1;
             }
         } else if (nfds == 0) {
-            debug(LOG_ERR, "Timed out reading data via select() from auth server");
+            debug(LOG_ERR, "从Auth服务器读取数据超时。");
             goto error;
         } else if (nfds < 0) {
-            debug(LOG_ERR, "Error reading data via select() from auth server: %s", strerror(errno));
+            debug(LOG_ERR, "从Auth服务器读取数据错误，错误码：%d，原因：%s", errno, strerror(errno));
             goto error;
         }
     } while (!done);
 
     retval = pstr_to_string(response);
-    debug(LOG_DEBUG, "HTTP Response from Server: [%s]", retval);
+    debug(LOG_DEBUG, "接收到Auth服务器返回数据[%s]", retval);
     return retval;
 
  error:
@@ -520,7 +521,7 @@ cert_verify_callback(X509_STORE_CTX *x509_ctx, void *arg)
 		       host, cert_str);
 		return 1;
 	} else {
-		debug(LOG_INFO, "Got '%s' for hostname '%s' and certificate:\n%s\n",
+		debug(LOG_INFO, "Got '%s' for hostname '%s' and certificate:\n%s",
 		       res_str, host, cert_str);
 		return 0;
 	}
@@ -533,6 +534,7 @@ evhttps_context_init(void)
 	SSL_CTX *ssl_ctx = NULL;
 	struct event_base 	*base = NULL;
 
+    debug(LOG_DEBUG, "evhttps_context_init() : 执行初始化libevent库。");
 	context = (struct evhttps_request_context *) malloc(sizeof(struct evhttps_request_context));
 	if (context == NULL)
 		goto cleanup;
@@ -540,20 +542,20 @@ evhttps_context_init(void)
 	/* This isn't strictly necessary... OpenSSL performs RAND_poll
 	 * automatically on first use of random number generator. */
 	if (RAND_poll() == 0) {
-		debug(LOG_ERR, "RAND_poll failed");
+        debug(LOG_ERR, "执行RAND_poll函数出错。");
 		goto cleanup;
 	}
 
 	/* Create a new OpenSSL context */
 	ssl_ctx = SSL_CTX_new(SSLv23_method());
 	if (!ssl_ctx) {
-		debug(LOG_ERR, "SSL_CTX_new failed");
+        debug(LOG_ERR, "执行SSL_CTX_new函数出错。");
 		goto cleanup;
 	}
 
 #ifdef	VERIFY_PEER
 	if (1 != SSL_CTX_load_verify_locations(ssl_ctx, crt, NULL)) {
-		debug(LOG_ERR, "SSL_CTX_load_verify_locations failed");
+        debug(LOG_ERR, "执行SSL_CTX_load_verify_locations函数出错。");
 		goto cleanup;
 	}
 	
@@ -565,7 +567,7 @@ evhttps_context_init(void)
 	// Create event base
 	base = event_base_new();
 	if (!base) {
-		debug(LOG_ERR, "event_base_new() failed");
+        debug(LOG_ERR, "执行event_base_new函数出错。");
 		goto cleanup;
 	}
 
@@ -603,7 +605,7 @@ void
 evhttp_set_request_header(struct evhttp_request *req)
 {
 	char user_agent[128] = {0};
-	snprintf(user_agent, 128, "ApFree WiFiDog %s", VERSION);
+	snprintf(user_agent, 128, "WiFi Firewall %s", VERSION);
 	struct evkeyvalq *output_headers = evhttp_request_get_output_headers(req);
 	evhttp_add_header(output_headers, "Host", get_auth_server()->authserv_hostname);
 	evhttp_add_header(output_headers, "User-Agent", user_agent);
@@ -625,13 +627,14 @@ evhttps_request(struct evhttps_request_context *context, const char *uri, int ti
 	struct evhttp_connection *evcon = NULL;
 	struct evhttp_request *req;
 	
-	int ret = 0;
-		
-	
+	int ret = 0;		
+
+	debug(LOG_INFO, "发送请求到Auth服务器[%s]", uri);	
+
 	// Create OpenSSL bufferevent and stack evhttp on top of it
 	ssl = SSL_new(ssl_ctx);
 	if (ssl == NULL) {
-		debug(LOG_ERR, "SSL_new() failed");
+		debug(LOG_ERR, "调用SSL_new函数失败，无法创建OpenSSL缓冲区事件和堆栈。");
 		goto cleanup;
 	}
 	
@@ -644,7 +647,7 @@ evhttps_request(struct evhttps_request_context *context, const char *uri, int ti
 			BUFFEREVENT_SSL_CONNECTING,
 			BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS);
 	if (bev == NULL) {
-		debug(LOG_ERR, "bufferevent_openssl_socket_new() failed");
+		debug(LOG_ERR, "调用bufferevent_openssl_socket_new函数失败。");
 		goto cleanup;
 	}
 	
@@ -653,15 +656,17 @@ evhttps_request(struct evhttps_request_context *context, const char *uri, int ti
 	evcon = evhttp_connection_base_bufferevent_new(base, NULL, bev,
 		auth_server->authserv_hostname, auth_server->authserv_ssl_port);
 	if (evcon == NULL) {
-		debug(LOG_ERR, "evhttp_connection_base_bufferevent_new() failed");
+		debug(LOG_ERR, "调用evhttp_connection_base_bufferevent_new函数失败。");
 		goto cleanup;
 	}
-	
+
+	debug(LOG_DEBUG, "读取返回超时时间为 %d 秒。", timeout);	
 	evhttp_connection_set_timeout(evcon, timeout);
 	context->data = data;
+
 	req = evhttp_request_new(process_request_done, context);
 	if (req == NULL) {
-		debug(LOG_ERR, "evhttp_request_new() failed");
+		debug(LOG_ERR, "调用evhttp_request_new函数失败。");
 		goto cleanup;
 	}
 	
@@ -669,13 +674,21 @@ evhttps_request(struct evhttps_request_context *context, const char *uri, int ti
 	
 	ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, uri);
 	if (ret != 0) {
-		debug(LOG_ERR, "evhttp_make_request() failed");
+		debug(LOG_ERR, "调用evhttp_make_request函数失败。");
 		goto cleanup;
 	}
 
 	event_base_dispatch(base);
 
+	if (evcon)
+		evhttp_connection_free(evcon);
+
+    return;
 cleanup:
+    //增加逻辑 By LiuQiQuan    
+    //需要把Auth服务器指向下一个。
+    mark_auth_server_bad(auth_server);
+
 	if (evcon)
 		evhttp_connection_free(evcon);
 }

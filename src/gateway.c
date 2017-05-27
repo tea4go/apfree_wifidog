@@ -82,7 +82,7 @@ struct evbuffer	*evb_internet_offline_page 		= NULL;
 struct evbuffer *evb_authserver_offline_page	= NULL;
 struct redir_file_buffer *wifidog_redir_html 	= NULL;
 
-/** XXX Ugly hack 
+/** XXX Ugly hack
  * We need to remember the thread IDs of threads that simulate wait with pthread_cond_timedwait
  * so we can explicitly kill them in the termination handler
  */
@@ -92,7 +92,7 @@ static pthread_t tid_wdctl		 	= 0;
 static pthread_t tid_https_server	= 0;
 static pthread_t tid_http_server    = 0;
 static pthread_t tid_mqtt_server    = 0;
-static threadpool_t *pool 			= NULL; 
+static threadpool_t *pool 			= NULL;
 
 time_t started_time = 0;
 
@@ -104,20 +104,19 @@ evhttp_read_file(const char *filename, struct evbuffer *evb)
 {
 	int fd;
 	struct stat stat_info;
-	
+
 	fd = open(filename, O_RDONLY);
 	if (fd == -1) {
-		debug(LOG_CRIT, "Failed to open HTML message file %s: %s", strerror(errno), 
-			filename);
+		debug(LOG_CRIT, "Failed to open HTML message file %s: %s", strerror(errno),filename);
 		return NULL;
 	}
-	
+
 	if (fstat(fd, &stat_info) == -1) {
 		debug(LOG_CRIT, "Failed to stat HTML message file: %s", strerror(errno));
 		close(fd);
 		return NULL;
 	}
-	
+
 	evbuffer_add_file(evb, fd, 0, stat_info.st_size);
 	close(fd);
 	return evb;
@@ -126,17 +125,19 @@ evhttp_read_file(const char *filename, struct evbuffer *evb)
 static void
 init_wifidog_msg_html()
 {
-	s_config *config 			= config_get_config();	
-	
+	s_config *config 			= config_get_config();
+
 	evb_internet_offline_page 	= evbuffer_new();
 	if (!evb_internet_offline_page)
 		exit(0);
-	
+
 	evb_authserver_offline_page	= evbuffer_new();
 	if (!evb_authserver_offline_page)
 		exit(0);
-	
-	if ( !evhttp_read_file(config->internet_offline_file, evb_internet_offline_page) || 
+
+    debug(LOG_DEBUG, "init_wifidog_msg_html() : internet_offline_file = %s",config->internet_offline_file);
+    debug(LOG_DEBUG, "init_wifidog_msg_html() : authserver_offline_file = %s",config->authserver_offline_file);
+	if ( !evhttp_read_file(config->internet_offline_file, evb_internet_offline_page) ||
 		 !evhttp_read_file(config->authserver_offline_file, evb_authserver_offline_page)) {
 		debug(LOG_ERR, "init_wifidog_msg_html failed, exiting...");
 		exit(0);
@@ -146,45 +147,51 @@ init_wifidog_msg_html()
 static int
 init_wifidog_redir_html(void)
 {
-	s_config *config = config_get_config();	
+    debug(LOG_DEBUG, "init_wifidog_redir_html()");
+	s_config *config = config_get_config();
 	struct evbuffer *evb_front = NULL;
 	struct evbuffer *evb_rear = NULL;
 	char	front_file[128] = {0};
 	char	rear_file[128] = {0};
-	
-	
+
+    debug(LOG_DEBUG, "init_wifidog_redir_html() : 初始化重定向的网页。");
 	wifidog_redir_html = (struct redir_file_buffer *)malloc(sizeof(struct redir_file_buffer));
 	if (wifidog_redir_html == NULL) {
 		goto err;
 	}
-	
+
 	evb_front 	= evbuffer_new();
 	evb_rear	= evbuffer_new();
 	if (evb_front == NULL || evb_rear == NULL)  {
 		goto err;
 	}
-	
+
+    debug(LOG_DEBUG, "init_wifidog_redir_html() : 网页名称：%s",config->htmlredirfile);
 	snprintf(front_file, 128, "%s.front", config->htmlredirfile);
 	snprintf(rear_file, 128, "%s.rear", config->htmlredirfile);
-	if (!evhttp_read_file(front_file, evb_front) || 
+	if (!evhttp_read_file(front_file, evb_front) ||
 		!evhttp_read_file(rear_file, evb_rear)) {
 		goto err;
 	}
-	
+
 	int len = 0;
 	wifidog_redir_html->front 		= evb_2_string(evb_front, &len);
 	wifidog_redir_html->front_len	= len;
 	wifidog_redir_html->rear		= evb_2_string(evb_rear, &len);
 	wifidog_redir_html->rear_len	= len;
-	
-	if (evb_front) evbuffer_free(evb_front);	
+
+	if (evb_front) evbuffer_free(evb_front);
 	if (evb_rear) evbuffer_free(evb_rear);
+
+    debug(LOG_DEBUG, "init_wifidog_redir_html() : end");
 	return 1;
 err:
-	if (evb_front) evbuffer_free(evb_front);	
+    debug(LOG_ERR, "init_wifidog_redir_html() : 初始化重定向的网页失败。");
+    if (evb_front) evbuffer_free(evb_front);
 	if (evb_rear) evbuffer_free(evb_rear);
 	if (wifidog_redir_html) free(wifidog_redir_html);
 	wifidog_redir_html = NULL;
+    debug(LOG_DEBUG, "init_wifidog_redir_html() : end");
 	return 0;
 }
 
@@ -229,7 +236,7 @@ get_clients_from_parent(void)
 
     config = config_get_config();
 
-    debug(LOG_INFO, "Connecting to parent to download clients");
+    debug(LOG_INFO, "连接到父进程下载终端列表。");
 
     /* Connect to socket */
     sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -238,7 +245,7 @@ get_clients_from_parent(void)
      * Although connect expects a signed int, coverity probably tells us that it shouldn't
      * be negative */
     if (sock < 0) {
-        debug(LOG_ERR, "Could not open socket (%s) - client list not downloaded", strerror(errno));
+        debug(LOG_ERR, "不能打开网络连接，终端列表不能下载。错误号：%d，原因：%s", errno,strerror(errno));
         return;
     }
     memset(&sa_un, 0, sizeof(sa_un));
@@ -246,12 +253,12 @@ get_clients_from_parent(void)
     strncpy(sa_un.sun_path, config->internal_sock, (sizeof(sa_un.sun_path) - 1));
 
     if (connect(sock, (struct sockaddr *)&sa_un, strlen(sa_un.sun_path) + sizeof(sa_un.sun_family))) {
-        debug(LOG_ERR, "Failed to connect to parent (%s) - client list not downloaded", strerror(errno));
+        debug(LOG_ERR, "不能连接父进程，终端列表不能下载。错误号：%d，原因：%s", errno,strerror(errno));
         close(sock);
         return;
     }
 
-    debug(LOG_INFO, "Connected to parent.  Downloading clients");
+    debug(LOG_INFO, "连接父进程，正在下载终端列表。");
 
     LOCK_CLIENT_LIST();
 
@@ -269,7 +276,7 @@ get_clients_from_parent(void)
 
         if (!onechar) {
             /* We have a complete entry in linebuffer - parse it */
-            debug(LOG_DEBUG, "Received from parent: [%s]", linebuffer);
+            debug(LOG_DEBUG, "接收到：[%s]", linebuffer);
             running1 = linebuffer;
             while ((token1 = strsep(&running1, "|")) != NULL) {
                 if (!command) {
@@ -321,8 +328,7 @@ get_clients_from_parent(void)
                         } else if (strcmp(key, "counters_last_updated") == 0) {
                             client->counters.last_updated = atol(value);
                         } else {
-                            debug(LOG_NOTICE, "I don't know how to inherit key [%s] value [%s] from parent", key,
-                                  value);
+                            debug(LOG_NOTICE, "从父进程接收到未知内容，%s = %s", key, value);
                         }
                     }
                 }
@@ -342,7 +348,7 @@ get_clients_from_parent(void)
     }
 
     UNLOCK_CLIENT_LIST();
-    debug(LOG_INFO, "Client list downloaded successfully from parent");
+    debug(LOG_INFO, "从父进程下载终端列表成功。");
 
     close(sock);
 }
@@ -360,16 +366,16 @@ sigchld_handler(int s)
     int status;
     pid_t rc;
 
-    debug(LOG_DEBUG, "Handler for SIGCHLD called. Trying to reap a child");
-	
+    debug(LOG_DEBUG, "=  Handler for SIGCHLD called. Trying to reap a child");
+
 	do {
     	rc = waitpid(-1, &status, WNOHANG);
 	} while(rc != (pid_t)0 && rc != (pid_t)-1);
 
-    debug(LOG_DEBUG, "Handler for SIGCHLD reaped child PID %d", rc);
+    debug(LOG_DEBUG, "=  Handler for SIGCHLD reaped child PID %d", rc);
 }
 
-/** Exits cleanly after cleaning up the firewall.  
+/** Exits cleanly after cleaning up the firewall.
  *  Use this function anytime you need to exit after firewall initialization.
  *  @param s Integer that is really a boolean, true means voluntary exit, 0 means error.
  */
@@ -379,58 +385,58 @@ termination_handler(int s)
     static pthread_mutex_t sigterm_mutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_t self = pthread_self();
 
-    debug(LOG_INFO, "Handler for termination caught signal %d", s);
+    debug(LOG_INFO, "处理程序用于终止捕获的信号[%d]。", s);
 
     /* Makes sure we only call fw_destroy() once. */
     if (pthread_mutex_trylock(&sigterm_mutex)) {
-        debug(LOG_INFO, "Another thread already began global termination handler. I'm exiting");
+        debug(LOG_INFO, "另一个线程已经开始全局终止处理程序。 我退出了。");
         pthread_exit(NULL);
     } else {
-        debug(LOG_INFO, "Cleaning up and exiting");
+        debug(LOG_NOTICE, "清理和退出。");
     }
 
-    debug(LOG_INFO, "Flushing firewall rules...");
+    debug(LOG_INFO, "清理防火墙规则...");
     fw_destroy();
 
     /* XXX Hack
      * Aparently pthread_cond_timedwait under openwrt prevents signals (and therefore
-     * termination handler) from happening so we need to explicitly kill the threads 
+     * termination handler) from happening so we need to explicitly kill the threads
      * that use that
      */
     if (tid_fw_counter && self != tid_fw_counter) {
-        debug(LOG_INFO, "Explicitly killing the fw_counter thread");
+        debug(LOG_INFO, "杀掉 fw_counter 线程。");
         pthread_kill(tid_fw_counter, SIGKILL);
     }
     if (tid_ping && self != tid_ping) {
-        debug(LOG_INFO, "Explicitly killing the ping thread");
+        debug(LOG_INFO, "杀掉 ping 线程。");
         pthread_kill(tid_ping, SIGKILL);
     }
 	// liudf added 20160301
 	if (tid_wdctl && self != tid_wdctl) {
-        debug(LOG_INFO, "Explicitly killing the wdctl thread");
+        debug(LOG_INFO, "杀掉 wdctl 线程。");
 		pthread_kill(tid_wdctl, SIGKILL);
 	}
 	if (tid_https_server && self != tid_https_server) {
-		debug(LOG_INFO, "Explicitly killing the https_server thread");
+		debug(LOG_INFO, "杀掉 https_server 线程。");
 		pthread_kill(tid_https_server, SIGKILL);
 	}
     if (tid_http_server && self != tid_http_server) {
-        debug(LOG_INFO, "Explicitly killing the http_server thread");
+        debug(LOG_INFO, "杀掉 http_server 线程。");
         pthread_kill(tid_http_server, SIGKILL);
     }
     if (tid_mqtt_server && self != tid_mqtt_server) {
-        debug(LOG_INFO, "Explicitly killing the mqtt_server thread");
+        debug(LOG_INFO, "杀掉 mqtt_server 线程。");
         pthread_kill(tid_mqtt_server, SIGKILL);
     }
 	if(pool != NULL) {
 		threadpool_destroy(pool, 0);
 	}
 
-    debug(LOG_NOTICE, "Exiting...");
+    debug(LOG_NOTICE, "退出进程...");
     exit(s == 0 ? 1 : 0);
 }
 
-/** @internal 
+/** @internal
  * Registers all the signal handlers
  */
 static void
@@ -438,13 +444,13 @@ init_signals(void)
 {
     struct sigaction sa;
 
-    debug(LOG_DEBUG, "Initializing signal handlers");
+    debug(LOG_DEBUG, "初始化信号处理程序");
 
     sa.sa_handler = sigchld_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
     if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-        debug(LOG_ERR, "sigaction(): %s", strerror(errno));
+        debug(LOG_ERR, "设置信号SIGCHLD失败，进程将退出。错误码：%d，原因：%s", errno,strerror(errno));
         exit(1);
     }
 
@@ -456,7 +462,7 @@ init_signals(void)
      */
     sa.sa_handler = SIG_IGN;
     if (sigaction(SIGPIPE, &sa, NULL) == -1) {
-        debug(LOG_ERR, "sigaction(): %s", strerror(errno));
+        debug(LOG_ERR, "设置信号SIGPIPE失败，进程将退出。错误码：%d，原因：%s", errno,strerror(errno));
         exit(1);
     }
 
@@ -466,19 +472,19 @@ init_signals(void)
 
     /* Trap SIGTERM */
     if (sigaction(SIGTERM, &sa, NULL) == -1) {
-        debug(LOG_ERR, "sigaction(): %s", strerror(errno));
+        debug(LOG_ERR, "设置信号SIGTERM失败，进程将退出。错误码：%d，原因：%s", errno,strerror(errno));
         exit(1);
     }
 
     /* Trap SIGQUIT */
     if (sigaction(SIGQUIT, &sa, NULL) == -1) {
-        debug(LOG_ERR, "sigaction(): %s", strerror(errno));
+        debug(LOG_ERR, "设置信号SIGQUIT失败，进程将退出。错误码：%d，原因：%s", errno,strerror(errno));
         exit(1);
     }
 
     /* Trap SIGINT */
     if (sigaction(SIGINT, &sa, NULL) == -1) {
-        debug(LOG_ERR, "sigaction(): %s", strerror(errno));
+        debug(LOG_ERR, "设置信号SIGINT失败，进程将退出。错误码：%d，原因：%s", errno,strerror(errno));
         exit(1);
     }
 }
@@ -486,20 +492,20 @@ init_signals(void)
 static void
 wifidog_init()
 {
+    debug(LOG_DEBUG, "wifidog_init()");
+
+    debug(LOG_DEBUG, "wifidog_init() : ipset_init");
     if(ipset_init() == 0) {
         debug(LOG_ERR, "failed to create IPset control socket: %s");
         exit(1);
     }
-    
-	debug(LOG_DEBUG, "after ipset_init");
-	
+
+    debug(LOG_DEBUG, "wifidog_init() : common_setup");
     common_setup ();              /* Initialize OpenSSL */
-	
-	debug(LOG_DEBUG, "after common_setup");
-	
+
     /* Set the time when wifidog started */
     if (!started_time) {
-        debug(LOG_INFO, "Setting started_time");
+        debug(LOG_DEBUG, "wifidog_init() : 初始化started_time变量");
         started_time = time(NULL);
     } else if (started_time < MINIMUM_STARTED_TIME) {
         debug(LOG_WARNING, "Detected possible clock skew - re-setting started_time");
@@ -508,21 +514,30 @@ wifidog_init()
 
     // liudf added 20161124
     // read wifidog msg file to memory
-    init_wifidog_msg_html();    
+    debug(LOG_DEBUG, "wifidog_init() : init_wifidog_msg_html(读取wifidog网页)");
+    init_wifidog_msg_html();
+
+
+    debug(LOG_DEBUG, "wifidog_init() : init_wifidog_redir_html");
     if (!init_wifidog_redir_html()) {
         debug(LOG_ERR, "init_wifidog_redir_html failed, exiting...");
         exit(1);
     }
+
+    debug(LOG_DEBUG, "wifidog_init() : end");
 }
 
 static void
 refresh_fw()
 {
-    /* Reset the firewall (if WiFiDog crashed) */
+    /* Reset the firewall (if WiFiDog crashed) 重置防火墙（如果WiFiDog崩溃）*/
+    debug(LOG_INFO, "# 重置防火墙");
     fw_destroy();
+
     /* Then initialize it */
+    debug(LOG_INFO, "# 初始化防火墙");
     if (!fw_init()) {
-        debug(LOG_ERR, "FATAL: Failed to initialize firewall");
+        debug(LOG_ERR, "无法初始化防火墙，进程将退出。");
         exit(1);
     }
 }
@@ -530,27 +545,30 @@ refresh_fw()
 static void
 init_web_server(s_config *config)
 {
+    debug(LOG_DEBUG, "init_web_server()");
     /* Initializes the web server */
-    debug(LOG_NOTICE, "Creating web server on %s:%d", config->gw_address, config->gw_port);
+    debug(LOG_INFO, "# 创建Web服务器 %s:%d", config->gw_address, config->gw_port);
     if ((webserver = httpdCreate(config->gw_address, config->gw_port)) == NULL) {
-        debug(LOG_ERR, "Could not create web server: %s", strerror(errno));
+        debug(LOG_ERR, "创建Web服务器失败，错误码：%d，原因：%s", errno,strerror(errno));
         exit(1);
     }
     register_fd_cleanup_on_fork(webserver->serverSock);
 
-    debug(LOG_DEBUG, "Assigning callbacks to web server");
+    debug(LOG_INFO, "# 注册REST服务到Web服务器");
     httpdAddCContent(webserver, "/", "wifidog", 0, NULL, http_callback_wifidog);
     httpdAddCContent(webserver, "/wifidog", "", 0, NULL, http_callback_wifidog);
     httpdAddCContent(webserver, "/wifidog", "about", 0, NULL, http_callback_about);
     httpdAddCContent(webserver, "/wifidog", "status", 0, NULL, http_callback_status);
     httpdAddCContent(webserver, "/wifidog", "auth", 0, NULL, http_callback_auth);
     httpdAddCContent(webserver, "/wifidog", "disconnect", 0, NULL, http_callback_disconnect);
-    
+
     // liudf added 20160421
     // added temporary pass api
     httpdAddCContent(webserver, "/wifidog", "temporary_pass", 0, NULL, http_callback_temporary_pass);
-    
+
     httpdSetErrorFunction(webserver, 404, http_callback_404);
+
+    debug(LOG_DEBUG, "init_web_server() : end");
 }
 
 static void
@@ -558,38 +576,36 @@ create_wifidog_thread(s_config *config)
 {
     int result;
 
-    // add https redirect server    
+    debug(LOG_INFO, "# 创建 https_server 线程，处理HTTPS请求，并且定时解析内置域名来标识网关是否在线。");
     result = pthread_create(&tid_https_server, NULL, (void *)thread_https_server, NULL);
     if (result != 0) {
-        debug(LOG_ERR, "FATAL: Failed to create a new thread (https_server) - exiting");
+        debug(LOG_ERR, "创建 https_server 线程失败，将进程退出。");
         termination_handler(0);
     }
     pthread_detach(tid_https_server);
-    
 
     if (config->work_mode) {
-        // start http server thread
+        debug(LOG_INFO, "# 创建 http_server 线程，处理HTTP请求。");
         result = pthread_create(&tid_http_server, NULL, (void *)thread_http_server, NULL);
         if (result != 0) {
-            debug(LOG_ERR, "FATAL: Failed to create a new thread (http_server) - exiting");
+            debug(LOG_ERR, "创建 http_server 线程失败，将进程退出。");
             termination_handler(0);
         }
         pthread_detach(tid_http_server);
     }
 
-    /* Start heartbeat thread */
+    debug(LOG_INFO, "# 创建 ping 线程，主动发送心跳(/wifidog/ping)到Auth服务器。");
     result = pthread_create(&tid_ping, NULL, (void *)thread_ping, NULL);
     if (result != 0) {
-        debug(LOG_ERR, "FATAL: Failed to create a new thread (ping) - exiting");
+        debug(LOG_ERR, "创建 ping 线程失败，将进程退出。");
         termination_handler(0);
     }
     pthread_detach(tid_ping);
-    
 
-    /* Start client clean up thread */
+    debug(LOG_INFO, "# 创建 fw_counter 线程，主动发送统计(/wifidog/auth/?stage=counters)到Auth服务器。");
     result = pthread_create(&tid_fw_counter, NULL, (void *)thread_client_timeout_check, NULL);
     if (result != 0) {
-        debug(LOG_ERR, "FATAL: Failed to create a new thread (fw_counter) - exiting");
+        debug(LOG_ERR, "创建 fw_counter 线程失败，将进程退出。");
         termination_handler(0);
     }
     pthread_detach(tid_fw_counter);
@@ -597,44 +613,46 @@ create_wifidog_thread(s_config *config)
     if(config->pool_mode) {
         int thread_number = config->thread_number;
         int queue_size = config->queue_size;
-        // start thread pool
+
+        debug(LOG_INFO, "# 创建线程池，线程大小：%d，队列：%d", thread_number, queue_size);
         pool = threadpool_create(thread_number, queue_size, 0);
         if(pool == NULL) {
-            debug(LOG_ERR, "FATAL: Failed to create threadpool - exiting");
+            debug(LOG_ERR, "创建线程池失败，将进程退出。线程大小：%d，队列：%d", thread_number, queue_size);
             termination_handler(0);
         }
-        debug(LOG_DEBUG, "Create thread pool thread_num %d, queue_size %d", thread_number, queue_size);
-    }   
+    }
 
 #ifdef	_MQTT_SUPPORT_
-    // start mqtt subscript thread
+    debug(LOG_INFO, "# 创建 MQTT 线程，处理MQTT消息。");
     result = pthread_create(&tid_mqtt_server, NULL, (void *)thread_mqtt, config);
     if (result != 0) {
-        debug(LOG_ERR, "FATAL: Failed to create a new thread (thread_mqtt) - exiting");
+        debug(LOG_ERR, "创建 MQTT 线程失败，将进程退出。");
         termination_handler(0);
     }
     pthread_detach(tid_mqtt_server);
 #endif
-	
-	 /* Start control thread */
+
+    debug(LOG_DEBUG, "# 创建 wdctl 线程，处理命令行以及接口消息。");
     result = pthread_create(&tid_wdctl, NULL, (void *)thread_wdctl, (void *)safe_strdup(config->wdctl_sock));
     if (result != 0) {
-        debug(LOG_ERR, "FATAL: Failed to create a new thread (wdctl) - exiting");
+        debug(LOG_ERR, "创建 wdctl 线程失败，将进程退出。");
         termination_handler(0);
     }
     pthread_detach(tid_wdctl);
 }
 
 /**@internal
- * Main execution loop 
+ * Main execution loop
  */
 static void
 main_loop(void)
 {
     s_config *config = config_get_config();
-    request *r;
+    request *request_data;
     void **params;
-	
+    char task_name[60];
+
+    debug(LOG_NOTICE, "执行初始化(wifidog_init)");
     wifidog_init();
 
 	/* save the pid file if needed */
@@ -643,76 +661,70 @@ main_loop(void)
 
     /* If we don't have the Gateway IP address, get it. Can't fail. */
     if (!config->gw_address) {
-        debug(LOG_DEBUG, "Finding IP address of %s", config->gw_interface);
+        debug(LOG_DEBUG, "得到网关(%s)的IP地址(gw_address)。", config->gw_interface);
         if ((config->gw_address = get_iface_ip(config->gw_interface)) == NULL) {
-            debug(LOG_ERR, "Could not get IP address information of %s, exiting...", config->gw_interface);
+            debug(LOG_ERR, "无法获取 %s 的IP地址，进程将退出。", config->gw_interface);
             exit(1);
         }
-        debug(LOG_DEBUG, "%s = %s", config->gw_interface, config->gw_address);
+        debug(LOG_NOTICE, "网关(%s)的IP地址为：%s", config->gw_interface, config->gw_address);
     }
 
     /* If we don't have the Gateway ID, construct it from the internal MAC address.
      * "Can't fail" so exit() if the impossible happens. */
     if (!config->gw_id) {
+        debug(LOG_DEBUG, "得到网关(%s)的标识(gw_id)，通过Mac地址构造。", config->gw_interface);
         if ((config->gw_id = get_iface_mac(config->gw_interface)) == NULL) {
-            debug(LOG_ERR, "Could not get MAC address information of %s, exiting...", config->gw_interface);
+            debug(LOG_ERR, "无法获取 %s 的Mac地址，进程将退出。", config->gw_interface);
             exit(1);
         }
+        debug(LOG_NOTICE, "网关(%s)的标识为：%s", config->gw_interface, config->gw_id);
     }
-	
-    init_web_server(config);
-    refresh_fw();
-	create_wifidog_thread(config);
 
-    debug(LOG_DEBUG, "Waiting for connections");
+    debug(LOG_NOTICE, "创建Web服务器。");
+    init_web_server(config);
+
+    debug(LOG_NOTICE, "设置防火墙，将所有网络请求拦截。");
+    refresh_fw();
+
+    debug(LOG_NOTICE, "创建工作线程。");
+	create_wifidog_thread(config);    
+
+    debug(LOG_NOTICE, "Web服务器开始等待终端连接。");
     while (1) {
 
-        r = httpdGetConnection(webserver, NULL);
+        request_data = httpdGetConnection(webserver, NULL);
 
-        /* We can't convert this to a switch because there might be
-         * values that are not -1, 0 or 1. */
         if (webserver->lastError == -1) {
-            /* Interrupted system call */
-            if (NULL != r) {
-                httpdEndRequest(r);
+            /* 中断系统调用 */
+            if (NULL != request_data) {
+                httpdEndRequest(request_data);
             }
         } else if (webserver->lastError < -1) {
-            /*
-             * FIXME
-             * An error occurred - should we abort?
-             * reboot the device ?
-             */
-            debug(LOG_ERR, "FATAL: httpdGetConnection returned unexpected value %d, exiting.", webserver->lastError);
+            debug(LOG_ERR, "Web服务器发生异常，异常码：%d，进程将退出。", webserver->lastError);
             termination_handler(0);
-		} else if (r != NULL && config->pool_mode) {
-            debug(LOG_DEBUG, "Received connection from %s, add to work queue", r->clientAddr);
+		} else if (request_data != NULL && config->pool_mode) {
+            //debug(LOG_DEBUG, "main_loop() : 从%s接收到连接，添加到工作队列", request_data->clientAddr);
 			params = safe_malloc(2 * sizeof(void *));
             *params = webserver;
-            *(params + 1) = r;
-			
-			int result = threadpool_add(pool, (void *)thread_httpd, (void *)params, 1);
+            *(params + 1) = request_data;
+            
+			sprintf(task_name,"TID=%ld",pthread_self());
+			int result = threadpool_add(pool, task_name, (void *)thread_httpd, (void *)params, 1);
             if(result != 0) {
             	free(params);
-            	httpdEndRequest(r);
-            	debug(LOG_ERR, "threadpool_add failed, result is %d", result);
+            	httpdEndRequest(request_data);
+            	debug(LOG_ERR, "新的网络请求增加到处理线程池失败。返回码：%d", result);
             }
-        } else if (r != NULL) {
+        } else if (request_data != NULL) {
             pthread_t tid;
-            /*
-             * We got a connection
-             *
-             * We should create another thread
-             */
-            debug(LOG_DEBUG, "Received connection from %s, spawning worker thread", r->clientAddr);
-            /* The void**'s are a simulation of the normal C
-             * function calling sequence. */
+            //debug(LOG_DEBUG, "从终端 %s 接收到网络连接，产生工作线程。", request_data->clientAddr);
             params = safe_malloc(2 * sizeof(void *));
             *params = webserver;
-            *(params + 1) = r;
-			
+            *(params + 1) = request_data;
+
 			int result = create_thread(&tid, (void*)thread_httpd, (void *)params);
             if (result != 0) {
-                debug(LOG_ERR, "FATAL: Failed to create a new thread (httpd) - exiting");
+                debug(LOG_ERR, "创建一个工作线程失败，进程将退出。返回码：%d", result);
                 termination_handler(0);
             }
             pthread_detach(tid);
@@ -723,6 +735,7 @@ main_loop(void)
         }
     }
 
+    debug(LOG_NOTICE, "进程将退出。");
     /* never reached */
 }
 
@@ -730,58 +743,66 @@ main_loop(void)
 int
 gw_main(int argc, char **argv)
 {
-
     s_config *config = config_get_config();
     config_init();
 
     parse_commandline(argc, argv);
 
-    /* Initialize the config */
+    debug(LOG_NOTICE, "进程启动中(%s %s)",__DATE__,__TIME__);
+    debug(LOG_INFO, "初始化配置文件(%s)",config->configfile);
+
+	/* Initialize the config */
     config_read(config->configfile);
     config_validate();
 
+
+	debug(LOG_DEBUG, "main() : 初始化连接的客户端的链接列表");
     /* Initializes the linked list of connected clients */
     client_list_init();
 
+    debug(LOG_DEBUG, "main() : 初始化信号");
     /* Init the signals to catch chld/quit/etc */
     init_signals();
 
     if (restart_orig_pid) {
-        /*
-         * We were restarted and our parent is waiting for us to talk to it over the socket
-         */
+        //我们重新启动，我们的父母正在等待我们通过套接字进行交谈
         get_clients_from_parent();
 
         /*
          * At this point the parent will start destroying itself and the firewall. Let it finish it's job before we continue
          */
         while (kill(restart_orig_pid, 0) != -1) {
-            debug(LOG_INFO, "Waiting for parent PID %d to die before continuing loading", restart_orig_pid);
+            debug(LOG_INFO, "等待父进程 %d 退出。", restart_orig_pid);
             s_sleep(1, 0);
         }
 
-        debug(LOG_INFO, "Parent PID %d seems to be dead. Continuing loading.");
+        debug(LOG_INFO, "父进程 %d 已经退出，可以继续子进程了。");
     }
 
     if (config->daemon) {
 
-        debug(LOG_INFO, "Forking into background");
+        debug(LOG_INFO, "进入守护进程模式，创建子进程。");
 
         switch (safe_fork()) {
         case 0:                /* child */
+            debug(LOG_INFO, "子进程开始运行。");
             setsid();
-            append_x_restartargv();
+            append_x_restartargv();//增加-x参数，把PID传入
             main_loop();
             break;
 
         default:               /* parent */
+            debug(LOG_INFO, "父进程将退出，由子进程继续。");
             exit(0);
             break;
         }
     } else {
-        append_x_restartargv();
+        append_x_restartargv();//增加-x参数，把PID传入
+
+        debug(LOG_DEBUG, "main() : 进入主程序循环");
         main_loop();
     }
 
+    debug(LOG_DEBUG, "main() : end");
     return (0);                 /* never reached */
 }

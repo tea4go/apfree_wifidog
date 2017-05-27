@@ -363,8 +363,7 @@ struct timeval *timeout;
      ** Check the default ACL
      */
     if (server->defaultAcl) {
-        if (httpdCheckAcl(server, r, server->defaultAcl)
-            == HTTP_ACL_DENY) {
+        if (httpdCheckAcl(server, r, server->defaultAcl)== HTTP_ACL_DENY) {
             httpdEndRequest(r);
             server->lastError = 2;
             return (NULL);
@@ -384,7 +383,7 @@ httpdReadRequest(httpd * server, request * r)
     /*
      ** Setup for a standard response
      */
-    strcpy(r->response.headers, "Server: KunTeng Technologies Embedded Server\r\n");
+    strcpy(r->response.headers, "Server: Wifi Firewall Server\r\n");
     strcpy(r->response.contentType, "text/html\r\n");
     strcpy(r->response.response, "200 Output Follows\r\n");
     r->response.headersSent = 0;
@@ -758,7 +757,7 @@ httpdSetCookie(request * r, const char *name, const char *value)
 
 void
 httpdOutputLengthDirect(request *r, const char *msg, int msg_len)
-{
+{    
 	r->response.responseLength += msg_len;
     if (r->response.headersSent == 0)
         _httpd_sendHeaders(r, msg_len, 0);

@@ -35,7 +35,7 @@
 
 /**
  * @brief Authentication codes returned by auth server.
- *
+ * ÐãÃ·
  * Authentication result codes returned by auth_server_request() corresponding
  * to result code from the central server itself.
  */

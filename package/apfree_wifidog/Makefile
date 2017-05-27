@@ -10,7 +10,7 @@ PKG_MAINTAINER:=Dengfeng Liu<liudengfeng@kunteng.org>
 PKG_LICENSE_FILES:=COPYING
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL:=https://github.com/liudf0716/apfree_wifidog.git
+PKG_SOURCE_URL:=https://github.com/tea4go/apfree_wifidog.git
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_VERSION:=$(PKG_VERSION)
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz

@@ -136,7 +136,7 @@ evhttpd_get_full_redir_url(const char *mac, const char *ip, const char *orig_url
 					ip, mac, orig_url, gettimeofdaystr(time_str,sizeof(time_str)));
 	
 	char *redir_url = evb_2_string(evb, NULL);
-    //debug (LOG_DEBUG, "evhttpd_get_full_redir_url() : è·å–é‡å®šå‘åœ°å€ï¼š%s",redir_url);
+    //debug (LOG_DEBUG, "evhttpd_get_full_redir_url() : »ñÈ¡ÖØ¶¨ÏòµØÖ·£º%s",redir_url);
 	evbuffer_free(evb);
 	
 	return redir_url;
@@ -163,7 +163,7 @@ evhttp_gw_reply_js_redirect(struct evhttp_request *req, const char *peer_addr,ch
 	struct evbuffer *evb_redir_url = evbuffer_new();	                  
 	
     //#define    WIFIDOG_REDIR_HTML_CONTENT    "setTimeout(function() {location.href = \"%s\";}, 10);"
-	debug (LOG_INFO, "https_callback_404() : æ•è· %s è¯·æ±‚ [%s]==>[%s]", peer_addr, req_url,redir_url);
+	debug (LOG_INFO, "https_callback_404() : ²¶»ñ %s ÇëÇó [%s]==>[%s]", peer_addr, req_url,redir_url);
 	evbuffer_add(evb, wifidog_redir_html->front, wifidog_redir_html->front_len);
 	evbuffer_add_printf(evb_redir_url, WIFIDOG_REDIR_HTML_CONTENT, redir_url, 10);
 	evbuffer_add_buffer(evb, evb_redir_url);
@@ -204,16 +204,16 @@ process_https_cb (struct evhttp_request *req, void *arg) {
 		 strstr(tmp_url,"112.90.139.96") ||			
 		 strstr(tmp_url,"suggestion.baidu.com") ||			
  		 strstr(tmp_url,"ijinshan") ) {
-		//printf("æ— æ•ˆçš„ç½‘é¡µè®¿é—®ï¼Œ%s\n",tmp_url);
+		//printf("ÎŞĞ§µÄÍøÒ³·ÃÎÊ£¬%s\n",tmp_url);
 		free(tmp_url);
 		return;
 	}
 
 	if (!is_online()) {    
-        debug(LOG_DEBUG, "https_callback_404() : ç½‘å…³æœåŠ¡å™¨ä¸åœ¨çº¿ï¼Œè¿”å›ä¸åœ¨çº¿é¡µé¢ã€‚æ•è· %s è¯·æ±‚ [%s]", peer_addr?peer_addr:"ç©º",tmp_url);
+        debug(LOG_DEBUG, "https_callback_404() : Íø¹Ø·şÎñÆ÷²»ÔÚÏß£¬·µ»Ø²»ÔÚÏßÒ³Ãæ¡£²¶»ñ %s ÇëÇó [%s]", peer_addr?peer_addr:"¿Õ",tmp_url);
 		evhttpd_gw_reply(req, evb_internet_offline_page);
     } else if (!is_auth_online()) {  
-        debug(LOG_DEBUG, "https_callback_404() : AuthæœåŠ¡å™¨ä¸åœ¨çº¿ï¼Œè¿”å›ä¸åœ¨çº¿é¡µé¢ã€‚æ•è· %s è¯·æ±‚ [%s]", peer_addr?peer_addr:"ç©º",tmp_url);
+        debug(LOG_DEBUG, "https_callback_404() : Auth·şÎñÆ÷²»ÔÚÏß£¬·µ»Ø²»ÔÚÏßÒ³Ãæ¡£²¶»ñ %s ÇëÇó [%s]", peer_addr?peer_addr:"¿Õ",tmp_url);
 		evhttpd_gw_reply(req, evb_authserver_offline_page);
     } else {
 		evhttp_gw_reply_js_redirect(req, peer_addr,tmp_url);
@@ -268,45 +268,45 @@ static void check_internet_available(t_popular_server *popular_server) {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 	
-    debug(LOG_DEBUG, "check_internet_available() : è§£æäº’è”ç½‘åœ°å€(%s)",popular_server->hostname);	
+    debug(LOG_DEBUG, "check_internet_available() : ½âÎö»¥ÁªÍøµØÖ·(%s)",popular_server->hostname);	
 	evdns_getaddrinfo( dnsbase, popular_server->hostname, NULL ,
           &hints, check_internet_available_cb, popular_server);
     debug(LOG_DEBUG, "check_internet_available() : end");	
 }
 
 static void check_internet_available_cb(int errcode, struct evutil_addrinfo *addr, void *ptr) {
-    debug (LOG_DEBUG, "check_internet_available(å›è°ƒå‡½æ•°)");
+    debug (LOG_DEBUG, "check_internet_available(»Øµ÷º¯Êı)");
 	if (errcode) { 
 		t_popular_server *popular_server = ptr;
 		if (popular_server) {
-            debug (LOG_DEBUG, "check_internet_available(å›è°ƒå‡½æ•°) : DNSæŸ¥è¯¢å‡ºé”™ï¼Œå°†è§£æä¸‹ä¸€ä¸ªåŸŸåã€‚URL=%sï¼Œé”™è¯¯ï¼š%s", popular_server->hostname, evutil_gai_strerror(errcode));
+            debug (LOG_DEBUG, "check_internet_available(»Øµ÷º¯Êı) : DNS²éÑ¯³ö´í£¬½«½âÎöÏÂÒ»¸öÓòÃû¡£URL=%s£¬´íÎó£º%s", popular_server->hostname, evutil_gai_strerror(errcode));
 			check_internet_available(popular_server->next);
         }
 	} else {
 		if (addr) {
 			// popular server dns resolve success
-			debug (LOG_DEBUG, "check_internet_available(å›è°ƒå‡½æ•°) : äº’è”ç½‘å¯ç”¨ï¼Œç½‘å…³æœåŠ¡å™¨æ ‡ä¸ºåœ¨çº¿ã€‚");
+			debug (LOG_DEBUG, "check_internet_available(»Øµ÷º¯Êı) : »¥ÁªÍø¿ÉÓÃ£¬Íø¹Ø·şÎñÆ÷±êÎªÔÚÏß¡£");
 			mark_online();
 			evutil_freeaddrinfo(addr);
 		}
 	}
-    debug (LOG_DEBUG, "check_internet_available(å›è°ƒå‡½æ•°) : end");
+    debug (LOG_DEBUG, "check_internet_available(»Øµ÷º¯Êı) : end");
 }
 
 static void check_auth_server_available_cb(int errcode, struct evutil_addrinfo *addr, void *ptr) {
-    debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°)");
+    debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı)");
 	t_auth_serv *auth_server = (t_auth_serv *)ptr;
 	if (errcode) { 
 		if (auth_server && auth_server->last_ip)
-          debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : DNSæŸ¥è¯¢å‡ºé”™ï¼ŒIPåœ°å€ï¼š%sï¼Œé”™è¯¯ï¼š%s", auth_server->last_ip,evutil_gai_strerror(errcode));		
+          debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : DNS²éÑ¯³ö´í£¬IPµØÖ·£º%s£¬´íÎó£º%s", auth_server->last_ip,evutil_gai_strerror(errcode));		
 		else
-          debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : DNSæŸ¥è¯¢å‡ºé”™ï¼Œé”™è¯¯ï¼š%s", evutil_gai_strerror(errcode));
+          debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : DNS²éÑ¯³ö´í£¬´íÎó£º%s", evutil_gai_strerror(errcode));
 		mark_auth_offline();
 		mark_auth_server_bad(auth_server);
 	} else {
 		int i = 0;
 		if (!addr) {
-			debug (LOG_ERR, "ä¸å¯èƒ½ï¼Œå›è°ƒå‡½æ•°ä¼ å…¥çš„addrä¸ºç©ºã€‚");
+			debug (LOG_ERR, "²»¿ÉÄÜ£¬»Øµ÷º¯Êı´«ÈëµÄaddrÎª¿Õ¡£");
 			return;
 		}
 		for (;addr; addr = addr->ai_next, i++) 
@@ -318,27 +318,27 @@ static void check_auth_server_available_cb(int errcode, struct evutil_addrinfo *
 
             	if (!auth_server->last_ip || strcmp(auth_server->last_ip, ip) != 0) 
 				{
-                    debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : æ›´æ–°AuthæœåŠ¡å™¨ %s çš„IPåœ°å€(%s)",auth_server->authserv_hostname, ip);
+                    debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : ¸üĞÂAuth·şÎñÆ÷ %s µÄIPµØÖ·(%s)",auth_server->authserv_hostname, ip);
 		            if (auth_server->last_ip)
 		                free(auth_server->last_ip);
 		            auth_server->last_ip = safe_strdup(ip);
 
 					/* Update firewall rules */
-					debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : æ¸…é™¤AuthæœåŠ¡å™¨çš„é˜²ç«å¢™è§„åˆ™ã€‚");
+					debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : Çå³ıAuth·şÎñÆ÷µÄ·À»ğÇ½¹æÔò¡£");
 		            fw_clear_authservers();
 
-					debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : è®¾ç½®AuthæœåŠ¡å™¨çš„é˜²ç«å¢™è§„åˆ™ã€‚");
+					debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : ÉèÖÃAuth·şÎñÆ÷µÄ·À»ğÇ½¹æÔò¡£");
 		            fw_set_authservers();
 
 		            evutil_freeaddrinfo(addr);
 		            break;
 		        } else{
-                    debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : AuthæœåŠ¡å™¨ %s çš„IPåœ°å€(%s)æ²¡æœ‰å˜åŒ–ï¼Œä¸éœ€è¦æ›´æ–°ã€‚",auth_server->authserv_hostname, ip);
+                    debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : Auth·şÎñÆ÷ %s µÄIPµØÖ·(%s)Ã»ÓĞ±ä»¯£¬²»ĞèÒª¸üĞÂ¡£",auth_server->authserv_hostname, ip);
 				}
 			}
 		}
 	}
-    debug (LOG_DEBUG, "check_authserver_available(å›è°ƒå‡½æ•°) : end");
+    debug (LOG_DEBUG, "check_authserver_available(»Øµ÷º¯Êı) : end");
 }
 
 static void check_auth_server_available() {
@@ -356,7 +356,7 @@ static void check_auth_server_available() {
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
 
-    debug(LOG_DEBUG, "check_authserver_available() : è§£æAuthæœåŠ¡å™¨åŸŸå(%s)",auth_server->authserv_hostname);
+    debug(LOG_DEBUG, "check_authserver_available() : ½âÎöAuth·şÎñÆ÷ÓòÃû(%s)",auth_server->authserv_hostname);
     evdns_getaddrinfo( dnsbase, auth_server->authserv_hostname, NULL ,
               &hints, check_auth_server_available_cb, auth_server);
 
@@ -370,31 +370,31 @@ static void schedule_work_cb(evutil_socket_t fd, short event, void *arg) {
 
     debug(LOG_DEBUG, "schedule_work_cb()");
 
-    debug(LOG_DEBUG, "schedule_work_cb() : æ£€æµ‹äº’è”ç½‘çŠ¶æ€ã€‚");
+    debug(LOG_DEBUG, "schedule_work_cb() : ¼ì²â»¥ÁªÍø×´Ì¬¡£");
 	t_popular_server *popular_server = config_get_config()->popular_servers;
 	check_internet_available(popular_server);
 
-    debug(LOG_DEBUG, "schedule_work_cb() : æ£€æµ‹AuthæœåŠ¡å™¨çŠ¶æ€ã€‚");
+    debug(LOG_DEBUG, "schedule_work_cb() : ¼ì²âAuth·şÎñÆ÷×´Ì¬¡£");
 	check_auth_server_available();
 	
 	// if config->update_domain_interval not 0
 	if (update_domain_interval == config_get_config()->update_domain_interval) {	
-        debug(LOG_DEBUG, "schedule_work_cb() : è§£æå†…ç½®ç™½åå•ã€‚");
+        debug(LOG_DEBUG, "schedule_work_cb() : ½âÎöÄÚÖÃ°×Ãûµ¥¡£");
 		parse_inner_trusted_domain_list();
 
-		debug(LOG_DEBUG, "schedule_work_cb() : è®¾ç½®å†…ç½®ç™½åå•çš„é˜²ç«å¢™è§„åˆ™ã€‚");
+		debug(LOG_DEBUG, "schedule_work_cb() : ÉèÖÃÄÚÖÃ°×Ãûµ¥µÄ·À»ğÇ½¹æÔò¡£");
 		fw_refresh_inner_domains_trusted();
 
-		debug(LOG_DEBUG, "schedule_work_cb() : è§£æç”¨æˆ·ç™½åå•ã€‚");
+		debug(LOG_DEBUG, "schedule_work_cb() : ½âÎöÓÃ»§°×Ãûµ¥¡£");
 		parse_user_trusted_domain_list();
-		debug(LOG_DEBUG, "schedule_work_cb() : è®¾ç½®ç”¨æˆ·ç™½åå•çš„é˜²ç«å¢™è§„åˆ™ã€‚");
+		debug(LOG_DEBUG, "schedule_work_cb() : ÉèÖÃÓÃ»§°×Ãûµ¥µÄ·À»ğÇ½¹æÔò¡£");
 		fw_refresh_user_domains_trusted();
 
 		update_domain_interval = 1;
 	} else
 		update_domain_interval++;
 
-    //å› ä¸ºå‰é¢æ³¨å†Œäº‹ä»¶æ—¶æ˜¯è¿™ä¸ª EV_PERSIST,æ°¸ä¹…æ€§äº‹æƒ…ã€‚
+    //ÒòÎªÇ°Ãæ×¢²áÊÂ¼şÊ±ÊÇÕâ¸ö EV_PERSIST,ÓÀ¾ÃĞÔÊÂÇé¡£
 	evutil_timerclear(&tv);
 	tv.tv_sec = config_get_config()->checkinterval+7;
 	event_add(timeout, &tv);
@@ -408,24 +408,24 @@ static int https_redirect (char *gw_ip,  t_https_server *https_server) {
 	struct event timeout;
 	struct timeval tv;
 	
-    debug(LOG_DEBUG, "thread_https_server() : æ‰§è¡Œåˆå§‹åŒ–libeventåº“ã€‚");
+    debug(LOG_DEBUG, "thread_https_server() : Ö´ĞĞ³õÊ¼»¯libevent¿â¡£");
   	base = event_base_new();
   	if (! base) { 
-		debug (LOG_ERR, "æ‰§è¡Œevent_base_newå‡½æ•°å‡ºé”™ã€‚");
+		debug (LOG_ERR, "Ö´ĞĞevent_base_newº¯Êı³ö´í¡£");
       	return 1;
     }
 	
   	/* Create a new evhttp object to handle requests. */
   	http = evhttp_new(base);
   	if (! http) { 
-		debug (LOG_ERR, "æ‰§è¡Œevhttp_newå‡½æ•°å‡ºé”™ã€‚");
+		debug (LOG_ERR, "Ö´ĞĞevhttp_newº¯Êı³ö´í¡£");
         event_base_free(base);
       	return 1;
     }
  
  	SSL_CTX *ctx = SSL_CTX_new (SSLv23_server_method());
 	if (!ctx) {
-        debug(LOG_ERR, "æ‰§è¡ŒSSL_CTX_newå‡½æ•°å‡ºé”™ã€‚");
+        debug(LOG_ERR, "Ö´ĞĞSSL_CTX_newº¯Êı³ö´í¡£");
 		evhttp_free(http);
         event_base_free(base);
       	return 1;
@@ -441,7 +441,7 @@ static int https_redirect (char *gw_ip,  t_https_server *https_server) {
 	* See http://www.mail-archive.com/openssl-dev@openssl.org/msg30957.html */
 	EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	if (! ecdh){
-        debug(LOG_ERR, "æ‰§è¡ŒEC_KEY_new_by_curve_nameå‡½æ•°å‡ºé”™ï¼Œè¿›ç¨‹å°†é€€å‡ºã€‚");
+        debug(LOG_ERR, "Ö´ĞĞEC_KEY_new_by_curve_nameº¯Êı³ö´í£¬½ø³Ì½«ÍË³ö¡£");
 		SSL_CTX_free(ctx);
 		evhttp_free(http);
         event_base_free(base);
@@ -449,42 +449,42 @@ static int https_redirect (char *gw_ip,  t_https_server *https_server) {
 	}
 
   	if (1 != SSL_CTX_set_tmp_ecdh(ctx, ecdh)){
-        debug(LOG_ERR, "æ‰§è¡ŒSSL_CTX_set_tmp_ecdhå‡½æ•°å‡ºé”™ï¼Œè¿›ç¨‹å°†é€€å‡ºã€‚");
+        debug(LOG_ERR, "Ö´ĞĞSSL_CTX_set_tmp_ecdhº¯Êı³ö´í£¬½ø³Ì½«ÍË³ö¡£");
 		SSL_CTX_free(ctx);
 		evhttp_free(http);
         event_base_free(base);
       	exit(EXIT_FAILURE);
 	}
 
-    debug(LOG_DEBUG, "thread_https_server() : è®¾ç½®HTTPsçš„è¯ä¹¦ã€‚Pem=%sï¼ŒKey=%s",https_server->svr_crt_file, https_server->svr_key_file);
+    debug(LOG_DEBUG, "thread_https_server() : ÉèÖÃHTTPsµÄÖ¤Êé¡£Pem=%s£¬Key=%s",https_server->svr_crt_file, https_server->svr_key_file);
 	server_setup_certs(ctx, https_server->svr_crt_file, https_server->svr_key_file);
 
 	/* This is the magic that lets evhttp use SSL. */
 	evhttp_set_bevcb (http, bevcb, ctx);
  
 	/* This is the callback that gets called when a request comes in. */
-    debug(LOG_DEBUG, "thread_https_server() : æ³¨å†ŒHTTPsæœåŠ¡å™¨çš„æ”¶åˆ°è¯·æ±‚çš„å›è°ƒå‡½æ•°ã€‚");
+    debug(LOG_DEBUG, "thread_https_server() : ×¢²áHTTPs·şÎñÆ÷µÄÊÕµ½ÇëÇóµÄ»Øµ÷º¯Êı¡£");
 	evhttp_set_gencb (http, process_https_cb, NULL);
 
 	/* Now we tell the evhttp what port to listen on */
-    debug(LOG_DEBUG, "thread_https_server() : æ³¨å†ŒHTTPsæœåŠ¡å™¨ç›‘å¬ç«¯å£(%s:%d)",gw_ip,https_server->gw_https_port);
+    debug(LOG_DEBUG, "thread_https_server() : ×¢²áHTTPs·şÎñÆ÷¼àÌı¶Ë¿Ú(%s:%d)",gw_ip,https_server->gw_https_port);
 	handle = evhttp_bind_socket_with_handle (http, gw_ip, https_server->gw_https_port);
 	if (! handle) { 
-		debug (LOG_ERR, "ä¸èƒ½æ³¨å†ŒHTTPsæœåŠ¡å™¨ç›‘å¬ç«¯å£(%s:%d)",gw_ip,(int) https_server->gw_https_port);
+		debug (LOG_ERR, "²»ÄÜ×¢²áHTTPs·şÎñÆ÷¼àÌı¶Ë¿Ú(%s:%d)",gw_ip,(int) https_server->gw_https_port);
 		SSL_CTX_free(ctx);
 		evhttp_free(http);
         event_base_free(base);
 		return 1;
     }
     
-	// check whether internet available or not(æ£€æŸ¥äº’è”ç½‘æ˜¯å¦å¯ç”¨)
-    debug(LOG_DEBUG, "thread_https_server() : è·å¾—DNSæœåŠ¡å™¨åœ°å€(/tmp/resolv.conf.auto)");
+	// check whether internet available or not(¼ì²é»¥ÁªÍøÊÇ·ñ¿ÉÓÃ)
+    debug(LOG_DEBUG, "thread_https_server() : »ñµÃDNS·şÎñÆ÷µØÖ·(/tmp/resolv.conf.auto)");
 
-	//evdns_base_newå‡½æ•°ï¼Œå¦‚æœinitializeå‚æ•°è®¾ç½®ä¸º1,åˆ™ä½¿ç”¨æ“ä½œç³»ç»Ÿçš„é»˜è®¤é…ç½®.å¦‚æœä¸º0,åˆ™ä¸è®¾ç½®åŸŸåè§£ææœåŠ¡å™¨å’Œé…ç½®å‚æ•°.  
-	//å¯ä»¥ä½¿ç”¨evdns_base_resolv_conf_parse()å‡½æ•°æ¥è¯»å–ä¸€ä¸ªé…ç½®æ–‡ä»¶,å®ç°è‡ªå®šä¹‰é…ç½®,è¿™é‡Œå°±ä¸å¤šè¯´äº†.  
+	//evdns_base_newº¯Êı£¬Èç¹ûinitialize²ÎÊıÉèÖÃÎª1,ÔòÊ¹ÓÃ²Ù×÷ÏµÍ³µÄÄ¬ÈÏÅäÖÃ.Èç¹ûÎª0,Ôò²»ÉèÖÃÓòÃû½âÎö·şÎñÆ÷ºÍÅäÖÃ²ÎÊı.  
+	//¿ÉÒÔÊ¹ÓÃevdns_base_resolv_conf_parse()º¯ÊıÀ´¶ÁÈ¡Ò»¸öÅäÖÃÎÄ¼ş,ÊµÏÖ×Ô¶¨ÒåÅäÖÃ,ÕâÀï¾Í²»¶àËµÁË.  
 	dnsbase = evdns_base_new(base, 0);
 	if ( 0 != evdns_base_resolv_conf_parse(dnsbase, DNS_OPTION_NAMESERVERS, "/tmp/resolv.conf.auto") ) {
-        debug(LOG_ERR, "æ‰§è¡Œevdns_base_resolv_conf_parseå‡½æ•°å‡ºé”™ï¼Œè¯»å–ä¸€ä¸ªé…ç½®æ–‡ä»¶(/tmp/resolv.conf.auto)");
+        debug(LOG_ERR, "Ö´ĞĞevdns_base_resolv_conf_parseº¯Êı³ö´í£¬¶ÁÈ¡Ò»¸öÅäÖÃÎÄ¼ş(/tmp/resolv.conf.auto)");
 		evdns_base_free(dnsbase, 0);
 		dnsbase = evdns_base_new(base, 1);
 	}
@@ -492,33 +492,33 @@ static int https_redirect (char *gw_ip,  t_https_server *https_server) {
 	
 	t_popular_server *popular_server = config_get_config()->popular_servers;
 
-    debug(LOG_DEBUG, "thread_https_server() : æ£€æµ‹äº’è”ç½‘è¿æ¥çŠ¶æ€ï¼Œé€šè¿‡è§£æ(%s)åŸŸååœ°å€æ¥åˆ¤æ–­ã€‚",popular_server->hostname);
+    debug(LOG_DEBUG, "thread_https_server() : ¼ì²â»¥ÁªÍøÁ¬½Ó×´Ì¬£¬Í¨¹ı½âÎö(%s)ÓòÃûµØÖ·À´ÅĞ¶Ï¡£",popular_server->hostname);
 	check_internet_available(popular_server);
 
-    debug(LOG_DEBUG, "thread_https_server() : æ£€æµ‹AuthæœåŠ¡å™¨çŠ¶æ€ã€‚");
-    debug(LOG_DEBUG, "thread_https_server() : æ³¨æ„ï¼š1ã€æ­¤å¤„åªè§£æAuthæœåŠ¡å™¨çš„åŸŸåï¼Œæ›´æ–°ä¸ºIPåœ°å€ã€‚");
-    debug(LOG_DEBUG, "thread_https_server() :       2ã€æ ‡è®°AuthæœåŠ¡å™¨æ˜¯å¦åœ¨çº¿ï¼Œæ˜¯é€šè¿‡è°ƒç”¨AuthæœåŠ¡å™¨çš„/pingè°ƒç”¨æ¥å®Œæˆ)");
+    debug(LOG_DEBUG, "thread_https_server() : ¼ì²âAuth·şÎñÆ÷×´Ì¬¡£");
+    debug(LOG_DEBUG, "thread_https_server() : ×¢Òâ£º1¡¢´Ë´¦Ö»½âÎöAuth·şÎñÆ÷µÄÓòÃû£¬¸üĞÂÎªIPµØÖ·¡£");
+    debug(LOG_DEBUG, "thread_https_server() :       2¡¢±ê¼ÇAuth·şÎñÆ÷ÊÇ·ñÔÚÏß£¬ÊÇÍ¨¹ıµ÷ÓÃAuth·şÎñÆ÷µÄ/pingµ÷ÓÃÀ´Íê³É)");
 	check_auth_server_available();
 
     //int event_assign(struct event *, struct event_base *, evutil_socket_t fd, short flag, event_callback_fn func_name, void * arg);
-	//fd   éœ€è¦ç›‘è§†æ–‡ä»¶æè¿°ç¬¦,å½“fd=-1æ—¶ï¼Œäº‹ä»¶è¢«æ‰‹åŠ¨æ¿€æ´»æˆ–è€…å®šæ—¶å™¨æº¢å‡ºæ¿€æ´»
-    //flag EV_PERSIST è¡¨ç¤ºäº‹ä»¶æ˜¯â€œæŒä¹…çš„â€
-    //flag 0          è¡¨ç¤º â€
-	//func_name å›è°ƒå‡½æ•°ï¼Œå®ƒæœ‰ä¸‰ä¸ªå‚æ•°(vent_assignçš„fd, eventå’Œargï¼›argï¼šä¼ é€’ç»™cbå‡½æ•°æŒ‡é’ˆçš„å‚æ•°)
-	//arg  ä¼ ç»™å›è°ƒå‡½æ•°çš„å‚æ•°
-    debug(LOG_DEBUG, "thread_https_server() : æ³¨å†Œå®šæ—¶ä»»åŠ¡äº‹ä»¶ï¼Œé—´éš”%dç§’ï¼Œå®šæ—¶æ£€æµ‹AuthæœåŠ¡å™¨çŠ¶æ€ã€‚",config_get_config()->checkinterval+7);
+	//fd   ĞèÒª¼àÊÓÎÄ¼şÃèÊö·û,µ±fd=-1Ê±£¬ÊÂ¼ş±»ÊÖ¶¯¼¤»î»òÕß¶¨Ê±Æ÷Òç³ö¼¤»î
+    //flag EV_PERSIST ±íÊ¾ÊÂ¼şÊÇ¡°³Ö¾ÃµÄ¡±
+    //flag 0          ±íÊ¾ ¡±
+	//func_name »Øµ÷º¯Êı£¬ËüÓĞÈı¸ö²ÎÊı(vent_assignµÄfd, eventºÍarg£»arg£º´«µİ¸øcbº¯ÊıÖ¸ÕëµÄ²ÎÊı)
+	//arg  ´«¸ø»Øµ÷º¯ÊıµÄ²ÎÊı
+    debug(LOG_DEBUG, "thread_https_server() : ×¢²á¶¨Ê±ÈÎÎñÊÂ¼ş£¬¼ä¸ô%dÃë£¬¶¨Ê±¼ì²âAuth·şÎñÆ÷×´Ì¬¡£",config_get_config()->checkinterval+7);
 	event_assign(&timeout, base, -1, 0, schedule_work_cb, (void*) &timeout);
 	evutil_timerclear(&tv);         
 	tv.tv_sec = config_get_config()->checkinterval+7;
-	//æ¿€æ´»è¯¥äº‹ä»¶
+	//¼¤»î¸ÃÊÂ¼ş
     event_add(&timeout, &tv);
 
 	
-	//è°ƒç”¨è¯¥å‡½æ•°ä¼šä¸€ç›´é˜»å¡åœ¨è¿™é‡Œï¼Œç­‰å¾…æ—¶é—´çš„è§¦å‘ã€‚ä¸event_base_loopç­‰ä»·ã€‚
-    debug(LOG_DEBUG, "thread_https_server() : ä¸€ç›´é˜»å¡åœ¨è¿™é‡Œï¼Œç­‰å¾…ç½‘ç»œè¯·æ±‚ã€‚");
+	//µ÷ÓÃ¸Ãº¯Êı»áÒ»Ö±×èÈûÔÚÕâÀï£¬µÈ´ıÊ±¼äµÄ´¥·¢¡£Óëevent_base_loopµÈ¼Û¡£
+    debug(LOG_DEBUG, "thread_https_server() : Ò»Ö±×èÈûÔÚÕâÀï£¬µÈ´ıÍøÂçÇëÇó¡£");
     event_base_dispatch(base);
 
-    debug(LOG_DEBUG, "thread_https_server() : é‡Šæ”¾åˆ†é…çš„èµ„æºã€‚");
+    debug(LOG_DEBUG, "thread_https_server() : ÊÍ·Å·ÖÅäµÄ×ÊÔ´¡£");
 	event_del(&timeout);
     evhttp_del_accept_socket(http, handle);
 	SSL_CTX_free(ctx);
@@ -527,7 +527,7 @@ static int https_redirect (char *gw_ip,  t_https_server *https_server) {
 	evdns_base_free(dnsbase, 0);
 
     debug(LOG_DEBUG, "thread_https_server() : end");
-  	/* ä¸å¯èƒ½æ‰§è¡Œåˆ°è¿™é‡Œï¼Œæ°¸è¿œè¿è¡Œ */
+  	/* ²»¿ÉÄÜÖ´ĞĞµ½ÕâÀï£¬ÓÀÔ¶ÔËĞĞ */
   	return 0;
 }
 

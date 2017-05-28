@@ -79,7 +79,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags);
  * @return 0 if all goes well, negative values in case of error (@see
  * threadpool_error_t for codes).
  */
-int threadpool_add(threadpool_t *pool, void (*routine)(void *),
+int threadpool_add(threadpool_t *pool, char *task_name, void (*routine)(void *),
                    void *arg, int flags);
 
 /**

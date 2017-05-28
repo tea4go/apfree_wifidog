@@ -171,7 +171,7 @@ threadpool_t *threadpool_create(int thread_count, int queue_size, int flags)
 }
 
 //在线程池的队列中添加一个新任务
-int threadpool_add(threadpool_t *pool, void (*function)(void *),
+int threadpool_add(threadpool_t *pool, char *task_name, void (*function)(void *),
                    void *argument, int flags)
 {
     int err = 0;

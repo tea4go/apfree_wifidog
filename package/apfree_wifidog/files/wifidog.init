@@ -1,22 +1,22 @@
 #!/bin/sh /etc/rc.common
 # Copyright (C) 2006 OpenWrt.org
 
-#Ö´ĞĞµÄË³Ğò£¬°´ÕÕ×Ö·û´®Ë³ĞòÅÅĞò²¢²»ÊÇÊı×ÖÅÅĞò 
+#æ‰§è¡Œçš„é¡ºåºï¼ŒæŒ‰ç…§å­—ç¬¦ä¸²é¡ºåºæ’åºå¹¶ä¸æ˜¯æ•°å­—æ’åº 
 START=65
 
-#Ê¹ÓÃprocdÆô¶¯  
+#ä½¿ç”¨procdå¯åŠ¨  
 USE_PROCD=1
 
 PROG=/usr/bin/wifidog
 CONFIGFILE=/tmp/wifidog.conf
 
-#À©Õ¹ÃüÁî
+#æ‰©å±•å‘½ä»¤
 EXTRA_COMMANDS="status"
-#ÃüÁî²ÎÊı
-EXTRA_HELP="        status   ´òÓ¡·şÎñ×´Ì¬"
+#å‘½ä»¤å‚æ•°
+EXTRA_HELP="        status   æ‰“å°æœåŠ¡çŠ¶æ€"
 
-#µ±Äã×¢²á¼à¿ØµÄuciÅäÖÃÎÄ¼şµÄmd5·¢Éú±ä»¯Ê±£¬¾Í»áµ÷ÓÃ½Å²½µÄreload_serviceº¯Êı£¬
-#ÄãÒ²¾Í¿ÉÒÔÔÚreload_serviceÀïÖØĞÂ¶ÁÈ¡ÅäÖÃÎÄ¼ş£¬²¢¸ù¾İĞèÒªÖØÆôdaemon½ø³Ì¡£
+#å½“ä½ æ³¨å†Œç›‘æ§çš„ucié…ç½®æ–‡ä»¶çš„md5å‘ç”Ÿå˜åŒ–æ—¶ï¼Œå°±ä¼šè°ƒç”¨è„šæ­¥çš„reload_serviceå‡½æ•°ï¼Œ
+#ä½ ä¹Ÿå°±å¯ä»¥åœ¨reload_serviceé‡Œé‡æ–°è¯»å–é…ç½®æ–‡ä»¶ï¼Œå¹¶æ ¹æ®éœ€è¦é‡å¯daemonè¿›ç¨‹ã€‚
 service_trigger() {
      procd_add_reload_trigger    "wifidog"    
 }
@@ -212,7 +212,7 @@ init_config() {
     config_foreach prepare_wifidog_conf wifidog
     
     [ ! -f $CONFIGFILE ] && {
-        echo "Ã»ÕÒµ½ wifidog.conf ÎÄ¼ş£¬½«ÍË³ö....."
+        echo "æ²¡æ‰¾åˆ° wifidog.conf æ–‡ä»¶ï¼Œå°†é€€å‡º....."
         stop
         exit
     }
@@ -222,41 +222,41 @@ init_config() {
 start_service() {
     init_config    
     
-    #´´½¨Ò»¸öÊµÀı£¬ ÔÚprocd¿´À´Ò»¸öÓ¦ÓÃ³ÌĞò¿ÉÒÔ¶à¸öÊµÀı  
+    #åˆ›å»ºä¸€ä¸ªå®ä¾‹ï¼Œ åœ¨procdçœ‹æ¥ä¸€ä¸ªåº”ç”¨ç¨‹åºå¯ä»¥å¤šä¸ªå®ä¾‹  
     procd_open_instance
 
-    #¶¨Òårespawn²ÎÊı£¬¸æÖªprocdµ±wifidog³ÌĞòÍË³öºó³¢ÊÔ½øĞĞÖØÆô  
-    # Èç¹ûÒÑ¾­Ê¹ÓÃsupervisorÀ´ÊØ»¤£¬¾ÍÒªĞ¡ĞÄÓĞ¿ÉÄÜÁ½´ÎÖØÆô
-    # ${respawn_threshold:-3600}  ½ø³ÌËÀÁË3600ÃëºóÖØÆô 
+    #å®šä¹‰respawnå‚æ•°ï¼Œå‘ŠçŸ¥procdå½“wifidogç¨‹åºé€€å‡ºåå°è¯•è¿›è¡Œé‡å¯  
+    # å¦‚æœå·²ç»ä½¿ç”¨supervisoræ¥å®ˆæŠ¤ï¼Œå°±è¦å°å¿ƒæœ‰å¯èƒ½ä¸¤æ¬¡é‡å¯
+    # ${respawn_threshold:-3600}  è¿›ç¨‹æ­»äº†3600ç§’åé‡å¯ 
     # ${respawn_timeout:-5} 
-    # ${respawn_retry:-5}         ÖØÆô5´ÎºóÍ£Ö¹·şÎñ
+    # ${respawn_retry:-5}         é‡å¯5æ¬¡ååœæ­¢æœåŠ¡
     procd_set_param respawn 
     
     # -s: log to syslog
     # -f: run in foreground
-    #Ö´ĞĞµÄÃüÁîÊÇ$PROG£¬ ÈôºóÃæÓĞ²ÎÊı¿ÉÒÔÖ±½ÓÔÚºóÃæ¼ÓÉÏ
+    #æ‰§è¡Œçš„å‘½ä»¤æ˜¯$PROGï¼Œ è‹¥åé¢æœ‰å‚æ•°å¯ä»¥ç›´æ¥åœ¨åé¢åŠ ä¸Š
     procd_set_param command $PROG -c $CONFIGFILE -s -f -d 7
     
-    #Èç¹ûÎÄ¼ş·¢ÏÖ±ä»¯½«ÖØÆô³ÌĞò¡£
+    #å¦‚æœæ–‡ä»¶å‘ç°å˜åŒ–å°†é‡å¯ç¨‹åºã€‚
     procd_set_param file    $CONFIGFILE
 
-    #°ó¶¨µÄÍøÂçÉè±¸£¨¼ì²âË÷ÒıĞòºÅµÄ±ä»¯£©
+    #ç»‘å®šçš„ç½‘ç»œè®¾å¤‡ï¼ˆæ£€æµ‹ç´¢å¼•åºå·çš„å˜åŒ–ï¼‰
     procd_set_param netdev br-lan
 
-    #ÉèÖÃcore²ÎÊı
+    #è®¾ç½®coreå‚æ•°
     procd_set_param limits core="limit -c 1024"
 
-    #¹Ø±ÕÊµÀı
+    #å…³é—­å®ä¾‹
     procd_close_instance
 }
 
-#ÖØĞÂ¼ÓÔØ·şÎñ
+#é‡æ–°åŠ è½½æœåŠ¡
 reload_service() {
     rc_procd start_service "$@"
     return 0
 }
 
-#µ±Ç°×´Ì¬
+#å½“å‰çŠ¶æ€
 status() {
     /usr/bin/wdctl status
 }

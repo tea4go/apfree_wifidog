@@ -173,12 +173,14 @@ get_ping_request(const struct sys_info *info)
 	t_auth_serv *auth_server = get_auth_server();
 	char *request = NULL;
 	char time_str[64];
+    char wan_ipaddr[64]={0};
 
 	if (!info)
 		return NULL;
-	
+
+	getwanaddr(wan_ipaddr, sizeof(wan_ipaddr));	
 	int nret = safe_asprintf(&request,
-			"GET %s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&nf_conntrack_count=%lu&cpu_usage=%3.2lf&wifidog_uptime=%lu&online_clients=%d&offline_clients=%d&ssid=%s&version=%s&type=%s&name=%s&channel_path=%s&wired_passed=%d&call_counter=%s HTTP/1.1\r\n"
+			"GET %s%sgw_id=%s&sys_uptime=%lu&sys_memfree=%u&sys_load=%.2f&nf_conntrack_count=%lu&cpu_usage=%3.2lf&wifidog_uptime=%lu&online_clients=%d&offline_clients=%d&ssid=%s&version=%s&type=%s&name=%s&channel_path=%s&wired_passed=%d&wan_ip=%s&call_counter=%s HTTP/1.1\r\n"
              "User-Agent: WiFi Firewall %s\r\n"
 			 "Connection: keep-alive\r\n"
              "Host: %s\r\n"
@@ -199,7 +201,8 @@ get_ping_request(const struct sys_info *info)
 			 NULL != g_type?g_type:"null",
 			 NULL != g_name?g_name:"null",
 			 NULL != g_channel_path?g_channel_path:"null",
-             config_get_config()->wired_passed,gettimeofdaystr(time_str,sizeof(time_str)),
+             config_get_config()->wired_passed,
+			 wan_ipaddr,gettimeofdaystr(time_str,sizeof(time_str)),
              VERSION, auth_server->authserv_hostname);
 	
 	return nret>0?request:NULL;

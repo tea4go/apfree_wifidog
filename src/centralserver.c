@@ -782,12 +782,14 @@ reply_login_response(t_authresponse *authresponse, struct evhttps_request_contex
         if(httpdGetVariableByName(r, "type")) {
             send_http_page_direct(r, "<html><body>微信授权成功！</body><html>");
         } else {
-            safe_asprintf(&urlFragment, "%sgw_id=%s&channel_path=%s&mac=%s&name=%s", 
+			char time_str[64];
+            safe_asprintf(&urlFragment, "%sgw_id=%s&channel_path=%s&mac=%s&name=%s&call_counter=%s", 
                 auth_server->authserv_portal_script_path_fragment, 
                 config->gw_id,
                 g_channel_path?g_channel_path:"null",
                 client->mac?client->mac:"null",
-                client->name?client->name:"null");
+                client->name?client->name:"null",
+				gettimeofdaystr(time_str,sizeof(time_str)));
             http_send_redirect_to_auth(r, urlFragment, "重定向到主页门户。");
             free(urlFragment);
         }

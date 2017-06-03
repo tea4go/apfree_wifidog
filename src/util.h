@@ -61,4 +61,6 @@ void trim(char* s, char c);
 
 char * gettimeofdaystr(char *out_text,size_t out_len);
 
+char * getwanaddr(char *out_text,size_t out_len);
+
 #endif                          /* _UTIL_H_ */

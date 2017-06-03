@@ -28,7 +28,7 @@ define Package/$(PKG_NAME)
   CATEGORY:=Network
   DEPENDS:=+zlib +iptables-mod-extra +iptables-mod-ipopt +kmod-ipt-nat +iptables-mod-nat-extra \
            +libpthread +libopenssl +@OPENSSL_WITH_EC +@OPENSSL_WITH_DEPRECATED +@OPENSSL_WITH_PSK +libjson-c +ipset +libip4tc +libevent2 +libevent2-openssl \
-		   +fping +libmosquitto +libuci
+           +fping +libmosquitto +libuci
   TITLE:=Apfree's wireless captive portal solution
   URL:=http://www.kunteng.org
 endef
@@ -42,25 +42,25 @@ define Package/$(PKG_NAME)/description
 endef
 
 define Package/$(PKG_NAME)/install
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/wifidog $(1)/usr/bin/
-	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/wdctl $(1)/usr/bin/
-	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libhttpd.so* $(1)/usr/lib/
-	$(INSTALL_DIR) $(1)/usr/sbin
-	$(INSTALL_BIN) ./files/wdping $(1)/usr/sbin/
-	$(INSTALL_DIR) $(1)/etc
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-msg.html $(1)/etc/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-redir.html $(1)/etc/
+	$(INSTALL_DIR)  $(1)/usr/bin
+	$(INSTALL_BIN)  $(PKG_INSTALL_DIR)/usr/bin/wifidog        $(1)/usr/bin/
+	$(INSTALL_BIN)  $(PKG_INSTALL_DIR)/usr/bin/wdctl          $(1)/usr/bin/
+	$(INSTALL_DIR)  $(1)/usr/lib
+	$(CP)           $(PKG_INSTALL_DIR)/usr/lib/libhttpd.so*   $(1)/usr/lib/
+	$(INSTALL_DIR)  $(1)/usr/sbin
+	$(INSTALL_BIN)  ./files/wdping                            $(1)/usr/sbin/
+	$(INSTALL_DIR)  $(1)/etc
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-msg.html         $(1)/etc/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-redir.html       $(1)/etc/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-redir.html.front $(1)/etc/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-redir.html.rear $(1)/etc/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/authserver-offline.html $(1)/etc/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/internet-offline.html $(1)/etc/
-	$(INSTALL_DIR) $(1)/etc/init.d
-	$(INSTALL_BIN) ./files/wifidog.init $(1)/etc/init.d/wifidog
-	$(INSTALL_DIR) $(1)/etc/config
-	$(CP) ./files/wifidog.conf $(1)/etc/config/wifidog
-	$(CP) ./files/apfree.* $(1)/etc/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/wifidog-redir.html.rear  $(1)/etc/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/authserver-offline.html  $(1)/etc/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/internet-offline.html    $(1)/etc/
+	$(INSTALL_DIR)  $(1)/etc/init.d
+	$(INSTALL_BIN)  ./files/wifidog.init                      $(1)/etc/init.d/wifidog
+	$(INSTALL_DIR)  $(1)/etc/config
+	$(CP)           ./files/wifidog.conf                      $(1)/etc/config/wifidog
+	$(CP)           ./files/apfree.*                          $(1)/etc/
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))

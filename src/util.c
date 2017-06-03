@@ -418,3 +418,24 @@ char * gettimeofdaystr(char *out_text,size_t out_len)
     snprintf(out_text,out_len,"%ld%ld",tv.tv_sec,tv.tv_usec);
 	return out_text;
 }
+
+
+char * getwanaddr(char *out_text,size_t out_len)
+{
+    char cmd[256] = {0};
+    FILE *f_dhcp = NULL;
+     
+    snprintf(cmd, 256, "ifconfig eth1|grep \"inet addr\"|cut -d':' -f 2|cut -d' ' -f 0");    
+    
+    debug(LOG_DEBUG, "分析/etc/confg/network文件得到wan的IP地址，执行命令：%s", cmd);
+    if((f_dhcp = popen(cmd, "r")) != NULL) {
+        char name[32] = {0};
+        fgets(name, 31,  f_dhcp);
+        pclose(f_dhcp);
+	    if(name&&name[strlen(name)-1] == '\n')
+		    name[strlen(name)-1] = '\0';
+		strncpy(out_text,name,out_len);
+        debug(LOG_DEBUG, "得到路由器的外部IP地址：%s", out_text);
+    }
+	return out_text;
+}

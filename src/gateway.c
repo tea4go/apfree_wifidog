@@ -366,13 +366,12 @@ sigchld_handler(int s)
     int status;
     pid_t rc;
 
-    debug(LOG_DEBUG, "=  Handler for SIGCHLD called. Trying to reap a child");
+    debug(LOG_DEBUG, "=  调用SIGCHLD的处理程序，等待子进程退出。");
 
 	do {
     	rc = waitpid(-1, &status, WNOHANG);
+        debug(LOG_DEBUG, "=  调用SIGCHLD的处理程序，子进程 %d 退出，返回值(%d)", rc,status);
 	} while(rc != (pid_t)0 && rc != (pid_t)-1);
-
-    debug(LOG_DEBUG, "=  Handler for SIGCHLD reaped child PID %d", rc);
 }
 
 /** Exits cleanly after cleaning up the firewall.

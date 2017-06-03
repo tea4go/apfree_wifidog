@@ -195,7 +195,7 @@ http_callback_404(httpd * webserver, request * r, int error_code)
   	    
     	char *url = httpdUrlEncode(tmp_url);	
 		char *redir_url = evhttpd_get_full_redir_url(mac, r->clientAddr, url);
-  	    debug (LOG_INFO, "http_callback_404() : 捕获 %s 请求 [%s]==>[%s]", r->clientAddr, tmp_url,redir_url);
+  	    debug (LOG_INFO, "捕获 %s 请求 [%s]==>[%s]", r->clientAddr, tmp_url,redir_url);
 
 		if (nret) {  // if get mac success              
 			t_client *clt = NULL;
@@ -341,7 +341,7 @@ http_callback_auth(httpd * webserver, request * r)
 	snprintf(tmp_url, (sizeof(tmp_url) - 1), "http://%s%s%s%s",
              r->request.host, r->request.path, r->request.query[0] ? "?" : "", r->request.query);
     
-	debug(LOG_INFO, "http_callback_auth() : 终端 %s 访问网关服务器。地址：%s", r->clientAddr,tmp_url);
+	debug(LOG_INFO, "终端 %s 访问网关服务器。地址：%s", r->clientAddr,tmp_url);
     t_client *client;
     httpVar *token;
     char *mac;
@@ -354,7 +354,7 @@ http_callback_auth(httpd * webserver, request * r)
         /* They supplied variable "token" */
         if (!(mac = arp_get(r->clientAddr))) {
             /* We could not get their MAC address */
-            debug(LOG_ERR, "http_callback_auth() : 找不到(%s)对应的Mac地址。", r->clientAddr);
+            debug(LOG_ERR, "找不到(%s)对应的Mac地址。", r->clientAddr);
             send_http_page(r, "错误", "找不到对应的Mac地址。");
         } else {
             /* We have their MAC address */
@@ -366,14 +366,14 @@ http_callback_auth(httpd * webserver, request * r)
   				    debug(LOG_NOTICE, "http_callback_auth() : 注销终端 %s(%s)", r->clientAddr,mac);
 					logout_client(client);
 				} else {
-					debug(LOG_INFO, "http_callback_auth() : 终端 %s(%s) 已经注销过", r->clientAddr,mac);
+					debug(LOG_INFO, "终端 %s(%s) 已经注销过", r->clientAddr,mac);
 				}				
                 UNLOCK_CLIENT_LIST();
 
 				send_http_page(r, "提示", "终端注销成功。");
 			}else {
 				if (client == NULL) {
-					debug(LOG_NOTICE, "http_callback_auth() : 新建终端 %s(%s)", r->clientAddr,mac);
+					debug(LOG_NOTICE, "新建终端 %s(%s)", r->clientAddr,mac);
 					client_list_add(r->clientAddr, mac, token->value);
 				} else {
 					debug(LOG_DEBUG, "http_callback_auth() : 终端 %s(%s) 已经在终端列表中", r->clientAddr,mac);
@@ -420,7 +420,7 @@ http_callback_disconnect(httpd * webserver, request * r)
         if (!client || strcmp(client->token, token->value)) {
             UNLOCK_CLIENT_LIST();
 			if (client) 
-               debug(LOG_INFO, "http_callback_disconnect() : 断开 %s 连接失败，传入的token不正确。令牌：%s",mac->value,client->token);
+               debug(LOG_INFO, "http_callback_disconnect() : 断开 %s 连接失败，传入的token不正确。令牌：%s",mac->value,token->value);
 			else
                debug(LOG_INFO, "http_callback_disconnect() : 断开 %s 连接失败，没找到mac地址对应的终端。",mac->value);
             httpdOutput(r, "无效的Mac地址或Token。");

@@ -30,7 +30,7 @@ define Package/$(PKG_NAME)
            +libpthread +libopenssl +@OPENSSL_WITH_EC +@OPENSSL_WITH_DEPRECATED +@OPENSSL_WITH_PSK +libjson-c +ipset +libip4tc +libevent2 +libevent2-openssl \
            +fping +libmosquitto +libuci
   TITLE:=Apfree's wireless captive portal solution
-  URL:=http://www.kunteng.org
+  URL:=http://www.yjsoft.win
 endef
 
 define Package/$(PKG_NAME)/description
